@@ -23,8 +23,8 @@ export function Sidebar() {
   const running = useLaunch((s) => s.phase === 'running')
 
   return (
-    <aside className="glass relative z-30 flex w-[76px] shrink-0 flex-col items-center border-y-0 border-l-0 py-5">
-      <Tooltip content="Akashic Network" side="right">
+    <aside className="panel relative z-30 flex w-[76px] shrink-0 flex-col items-center border-y-0 border-l-0 py-5">
+      <Tooltip content="Forbidden Series" side="right">
         <button
           aria-label="Início"
           onMouseEnter={() => audio.play('hover')}
@@ -37,7 +37,7 @@ export function Sidebar() {
         </button>
       </Tooltip>
 
-      <div className="my-6 h-px w-8 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+      <div className="my-6 h-px w-8 bg-line" />
 
       <nav className="flex flex-1 flex-col items-center gap-2">
         {NAV.map(({ id, label, icon: Icon }) => {
@@ -56,19 +56,19 @@ export function Sidebar() {
                 }}
                 className={cn(
                   'relative grid h-12 w-12 place-items-center rounded-xl transition-colors duration-300',
-                  active ? 'text-white' : 'text-slate-500 hover:bg-white/[0.05] hover:text-slate-200',
+                  active ? 'text-fg' : 'text-subtle hover:bg-overlay/[0.05] hover:text-fg',
                 )}
               >
                 {active && (
                   <>
                     <motion.span
                       layoutId="nav-active-bg"
-                      className="absolute inset-0 rounded-xl border border-aether-400/30 bg-gradient-to-br from-aether-500/25 to-rune-500/10 shadow-[0_0_24px_-4px_rgba(124,92,255,.6)]"
+                      className="absolute inset-0 rounded-xl border border-accent bg-brand"
                       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                     />
                     <motion.span
                       layoutId="nav-active-bar"
-                      className="absolute -left-[14px] top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-aether-300 to-rune-400 shadow-[0_0_12px_2px_rgba(124,92,255,.8)]"
+                      className="absolute -left-[14px] top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-accent shadow-glow"
                       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                     />
                   </>
@@ -85,7 +85,7 @@ export function Sidebar() {
         content={
           <span className="flex flex-col">
             <span className="font-semibold">{nickname}</span>
-            <span className="text-[10px] text-slate-400">{running ? 'Jogando · Akashic Survival' : 'Online no launcher'}</span>
+            <span className="text-[11px] text-muted">{running ? 'Jogando · Akashic Survival' : 'Online no launcher'}</span>
           </span>
         }
       >
@@ -93,16 +93,16 @@ export function Sidebar() {
           aria-label="Perfil"
           onMouseEnter={() => audio.play('hover')}
           onClick={() => audio.play('click')}
-          className="relative rounded-xl border border-white/10 bg-white/[0.04] p-1.5 transition-colors hover:border-aether-400/40"
+          className="relative rounded-xl border border-line bg-overlay/[0.04] p-1.5 transition-colors hover:border-accent"
         >
           <motion.div animate={{ y: [0, -2, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="[transform-style:preserve-3d]">
-            <div className="[transform:perspective(120px)_rotateY(-14deg)_rotateX(6deg)] drop-shadow-[2px_4px_6px_rgba(0,0,0,.6)]">
+            <div className="[transform:perspective(120px)_rotateY(-14deg)_rotateX(6deg)] drop-shadow-glow">
               <PlayerHead name={nickname} size={34} />
             </div>
           </motion.div>
           <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center">
-            <span className={cn('absolute h-full w-full rounded-full pulse-ring', running ? 'bg-ember-400' : 'bg-emerald-400')} />
-            <span className={cn('relative h-2.5 w-2.5 rounded-full border-2 border-void-800', running ? 'bg-ember-400' : 'bg-emerald-400')} />
+            <span className={cn('absolute h-full w-full rounded-full pulse-ring', running ? 'bg-accent-strong' : 'bg-success')} />
+            <span className={cn('relative h-2.5 w-2.5 rounded-full border-2 border-bg', running ? 'bg-accent-strong' : 'bg-success')} />
           </span>
         </button>
       </Tooltip>

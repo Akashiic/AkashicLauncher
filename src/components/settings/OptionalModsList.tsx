@@ -7,7 +7,7 @@ import { toast } from '@/store/toasts'
 import { cn, EASE } from '@/lib/cn'
 
 const TAG_ICON = { Performance: Gauge, Visual: Eye, 'Áudio': Volume2, Utilidade: Wrench }
-const IMPACT = { baixo: 'text-emerald-300', 'médio': 'text-amber-300', alto: 'text-rose-300' }
+const IMPACT = { baixo: 'text-success', 'médio': 'text-warning', alto: 'text-danger-text' }
 
 export function OptionalModsList() {
   const mods = useSettings((s) => s.settings.optionalMods)
@@ -18,14 +18,14 @@ export function OptionalModsList() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-bg/60 p-4">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-rune-400/10 text-rune-300">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand text-fg">
             <Map size={18} />
           </span>
           <div>
-            <div className="text-sm font-semibold text-white">Minimapa</div>
-            <div className="text-xs text-slate-400">Escolha apenas um — os dois juntos conflitam na 1.7.10.</div>
+            <div className="text-sm font-semibold text-fg">Minimapa</div>
+            <div className="text-xs text-muted">Escolha apenas um — os dois juntos conflitam na 1.7.10.</div>
           </div>
         </div>
         <Segmented<Minimap>
@@ -41,7 +41,7 @@ export function OptionalModsList() {
       </div>
 
       {shadersWithoutRenderer && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex items-center gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex items-center gap-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-xs text-warning">
           <AlertTriangle size={14} /> Shaders Support precisa de OptiFine ou Angelica ativados.
         </motion.div>
       )}
@@ -58,19 +58,19 @@ export function OptionalModsList() {
               transition={{ delay: i * 0.035, duration: 0.45, ease: EASE }}
               className={cn(
                 'flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-colors duration-300',
-                on ? 'border-aether-400/25 bg-aether-500/[0.07]' : 'border-white/[0.07] bg-black/20 hover:bg-white/[0.03]',
+                on ? 'border-accent/60 bg-brand/30' : 'border-line bg-bg/60 hover:bg-overlay/[0.03]',
               )}
             >
-              <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors', on ? 'bg-aether-500/20 text-aether-200' : 'bg-white/[0.05] text-slate-500')}>
+              <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors', on ? 'bg-brand text-fg' : 'bg-overlay/[0.05] text-subtle')}>
                 <Icon size={18} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-white">{m.name}</span>
-                  <span className="rounded border border-white/10 px-1.5 text-[10px] text-slate-400">{m.tag}</span>
-                  <span className={cn('text-[10px]', IMPACT[m.impact])}>impacto {m.impact}</span>
+                  <span className="text-sm font-semibold text-fg">{m.name}</span>
+                  <span className="rounded border border-line px-1.5 text-[11px] text-muted">{m.tag}</span>
+                  <span className={cn('text-[11px]', IMPACT[m.impact])}>impacto {m.impact}</span>
                 </span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-slate-400">{m.desc}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-muted">{m.desc}</span>
               </span>
               <Switch
                 checked={on}

@@ -1,4 +1,5 @@
 // Conteúdo mock de notícias/changelog. Troque por um fetch do seu CMS/API depois.
+import type { Tone } from '@/theme'
 export interface NewsItem {
   id: string
   tag: 'Atualização' | 'Evento' | 'Correção' | 'Anúncio'
@@ -6,7 +7,7 @@ export interface NewsItem {
   excerpt: string
   date: string
   version?: string
-  accent: string // rgb triplet para o glow
+  accent: Tone // tom do tema usado no brilho/selo do card
   changes?: { type: 'add' | 'fix' | 'change' | 'remove'; text: string }[]
 }
 
@@ -18,7 +19,7 @@ export const NEWS: NewsItem[] = [
     excerpt: 'Nova dimensão customizada, rebalanceamento do Thaumcraft e +12 mods de magia.',
     date: '05 Nov 2026',
     version: '3.4.0',
-    accent: '124 92 255',
+    accent: 'accent',
     changes: [
       { type: 'add', text: 'Dimensão "Vazio Akáshico" com bioma flutuante e boss final.' },
       { type: 'add', text: 'Mods: Blood Magic 1.3.3, Witchery 0.24.1, Ars Magica 2 (1.4.0.009).' },
@@ -33,7 +34,7 @@ export const NEWS: NewsItem[] = [
     title: 'Noite das Brasas — Evento PvE',
     excerpt: 'Hordas noturnas, drops exclusivos e ranking semanal com recompensas cosméticas.',
     date: '01 Nov 2026',
-    accent: '255 149 51',
+    accent: 'warning',
   },
   {
     id: 'v3-3-2',
@@ -42,7 +43,7 @@ export const NEWS: NewsItem[] = [
     excerpt: 'Memory leak do Railcraft resolvido, chunks carregando 30% mais rápido.',
     date: '24 Out 2026',
     version: '3.3.2',
-    accent: '63 224 208',
+    accent: 'success',
     changes: [
       { type: 'fix', text: 'Memory leak em túneis de Railcraft com carrinhos parados.' },
       { type: 'fix', text: 'Dessincronização de inventário com Inventory Tweaks.' },
@@ -56,7 +57,7 @@ export const NEWS: NewsItem[] = [
     excerpt: 'Linha tech expandida: GregTech-lite, Mekanism 9 e novas quests no HQM.',
     date: '10 Out 2026',
     version: '3.3.0',
-    accent: '157 130 255',
+    accent: 'accent',
     changes: [
       { type: 'add', text: 'Mekanism 9.1.1 + Mekanism Generators.' },
       { type: 'add', text: '64 novas quests de progressão tecnológica.' },
@@ -69,7 +70,7 @@ export const NEWS: NewsItem[] = [
     title: 'Temporada 4 começa em Dezembro',
     excerpt: 'Reset parcial do mundo de recursos, mapa novo e pass de temporada gratuito.',
     date: '02 Out 2026',
-    accent: '127 243 230',
+    accent: 'muted',
   },
 ]
 

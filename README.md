@@ -1,4 +1,6 @@
-# Akashic Launcher
+# Forbidden Series Launcher
+
+> **Entre no Proibido.**
 
 Launcher desktop (UI/UX + áudio + estado) para o servidor **Minecraft 1.7.10 Modded**.
 Download de arquivos e execução do Java são **simulados** — toda a experiência é testável.
@@ -27,6 +29,16 @@ src/components/home      status do servidor, cards, Action Bar e botão JOGAR
 src/components/settings  abas: Desempenho & Java, Jogo & Vídeo, Mods Opcionais, Áudio & Estética
 src/pages/               Início, Modpack, Changelog, Configurações
 ```
+
+## Tema (Forbidden Series)
+
+Todas as cores, fontes, raios e sombras ficam em **um único arquivo: `src/theme/tokens.css`**.
+
+- `tailwind.config.js` só expõe classes que apontam para esses tokens (`bg-brand`, `text-muted`, `border-line`...). A paleta padrão do Tailwind está desativada, então não dá para usar cores fora do tema.
+- `src/theme/index.ts` lê os mesmos tokens para Canvas/SVG (partículas, avatar).
+- Fontes empacotadas offline via `@fontsource`: **League Gothic** (títulos e botão JOGAR, sempre em caixa alta) e **Oswald** 400/600/700 (texto, menus).
+- Logo: coloque `public/brand/logo.png` (veja `public/brand/README.md`).
+- Única exceção: `backgroundColor` em `electron/main.cjs` (cor da janela antes do React carregar) espelha `--bg-base`.
 
 ## Persistência
 

@@ -18,7 +18,7 @@ function createWindow() {
     minHeight: 640,
     frame: false,
     transparent: false,
-    backgroundColor: '#090A0F',
+    backgroundColor: '#0D0D0D', // pré-pintura da janela: espelha --bg-base de src/theme/tokens.css
     show: false,
     titleBarStyle: 'hidden',
     webPreferences: {

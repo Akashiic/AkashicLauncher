@@ -6,12 +6,13 @@ import { GlowCard } from '@/components/ui/GlowCard'
 import { Segmented } from '@/components/ui/Segmented'
 import { audio } from '@/audio/AudioManager'
 import { cn, EASE } from '@/lib/cn'
+import { TONE_VAR, TONE_TEXT } from '@/theme'
 
 const CHANGE_ICON = {
-  add: { icon: Plus, cls: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20' },
-  fix: { icon: Wrench, cls: 'text-sky-300 bg-sky-400/10 border-sky-400/20' },
-  change: { icon: RefreshCw, cls: 'text-amber-300 bg-amber-400/10 border-amber-400/20' },
-  remove: { icon: Minus, cls: 'text-rose-300 bg-rose-400/10 border-rose-400/20' },
+  add: { icon: Plus, cls: 'text-success bg-success/10 border-success/20' },
+  fix: { icon: Wrench, cls: 'text-fg bg-overlay/10 border-overlay/20' },
+  change: { icon: RefreshCw, cls: 'text-warning bg-warning/10 border-warning/20' },
+  remove: { icon: Minus, cls: 'text-danger-text bg-danger/10 border-danger/20' },
 }
 
 type Filter = 'all' | NewsItem['tag']
@@ -26,8 +27,8 @@ export function NewsPage() {
       <div className="mx-auto max-w-4xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold text-white">Changelog & Notícias</h1>
-            <p className="mt-1 text-sm text-slate-400">Tudo o que mudou no servidor, em ordem cronológica.</p>
+            <h1 className="font-display text-[48px] text-fg">Changelog & Notícias</h1>
+            <p className="mt-1 text-sm text-muted">Tudo o que mudou no servidor, em ordem cronológica.</p>
           </div>
           <Segmented<Filter>
             size="sm"
@@ -43,7 +44,7 @@ export function NewsPage() {
         </div>
 
         <div className="relative mt-8 pl-8">
-          <div className="absolute bottom-2 left-[11px] top-2 w-px bg-gradient-to-b from-aether-400/60 via-white/10 to-transparent" />
+          <div className="absolute bottom-2 left-[11px] top-2 w-px bg-line" />
           <AnimatePresence mode="popLayout">
             {list.map((n, i) => {
               const isOpen = open === n.id
@@ -57,8 +58,8 @@ export function NewsPage() {
                   transition={{ delay: i * 0.05, duration: 0.5, ease: EASE }}
                   className="relative mb-4"
                 >
-                  <span className="absolute -left-[27px] top-6 h-3 w-3 rounded-full border-2 border-void-900" style={{ background: `rgb(${n.accent})`, boxShadow: `0 0 14px rgb(${n.accent})` }} />
-                  <GlowCard glow={n.accent} className="overflow-hidden">
+                  <span className="absolute -left-[27px] top-6 h-3 w-3 rounded-full border-2 border-bg" style={{ background: TONE_VAR[n.accent], boxShadow: `0 0 12px ${TONE_VAR[n.accent]}` }} />
+                  <GlowCard glow={TONE_VAR[n.accent]} className="overflow-hidden">
                     <button
                       onMouseEnter={() => audio.play('hover')}
                       onClick={() => {
@@ -70,17 +71,17 @@ export function NewsPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 text-[11px]">
-                          <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-semibold uppercase tracking-wider" style={{ color: `rgb(${n.accent})` }}>
+                          <span className={cn('rounded-md border border-line bg-overlay/[0.04] px-2 py-0.5 font-semibold uppercase tracking-wider', TONE_TEXT[n.accent])}>
                             {n.tag}
                           </span>
-                          <span className="text-slate-500">{n.date}</span>
-                          {n.version && <span className="font-mono text-slate-500">v{n.version}</span>}
+                          <span className="text-subtle">{n.date}</span>
+                          {n.version && <span className="font-mono text-subtle">v{n.version}</span>}
                         </div>
-                        <h3 className="mt-2 font-display text-lg font-semibold text-white">{n.title}</h3>
-                        <p className="mt-1 text-sm text-slate-400">{n.excerpt}</p>
+                        <h3 className="mt-2 font-display text-[28px] text-fg">{n.title}</h3>
+                        <p className="mt-1 text-sm text-muted">{n.excerpt}</p>
                       </div>
                       {n.changes && (
-                        <motion.span animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="text-slate-400">
+                        <motion.span animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="text-muted">
                           <ChevronDown size={18} />
                         </motion.span>
                       )}
@@ -88,11 +89,11 @@ export function NewsPage() {
                     <AnimatePresence initial={false}>
                       {isOpen && n.changes && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.45, ease: EASE }} className="relative z-[3] overflow-hidden">
-                          <ul className="space-y-2 border-t border-white/[0.06] px-5 pb-5 pt-4">
+                          <ul className="space-y-2 border-t border-line px-5 pb-5 pt-4">
                             {n.changes.map((c, j) => {
                               const { icon: Icon, cls } = CHANGE_ICON[c.type]
                               return (
-                                <motion.li key={j} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 + j * 0.04, ease: EASE }} className="flex items-start gap-3 text-sm text-slate-300">
+                                <motion.li key={j} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 + j * 0.04, ease: EASE }} className="flex items-start gap-3 text-sm text-muted">
                                   <span className={cn('mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border', cls)}>
                                     <Icon size={11} strokeWidth={3} />
                                   </span>

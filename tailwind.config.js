@@ -1,26 +1,65 @@
-/** @type {import('tailwindcss').Config} */
+/**
+ * Tailwind lê TODAS as cores/fontes/raios de src/theme/tokens.css.
+ * A paleta padrão do Tailwind está desativada de propósito: nenhuma cor
+ * fora do tema pode ser usada.
+ * @type {import('tailwindcss').Config}
+ */
+const v = (name) => `color-mix(in srgb, var(${name}) calc(<alpha-value> * 100%), transparent)`
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
+    colors: {
+      transparent: 'transparent',
+      current: 'currentColor',
+      inherit: 'inherit',
+      bg: v('--bg-base'),
+      surface: v('--surface'),
+      'surface-2': v('--surface-2'),
+      track: v('--track'),
+      line: v('--border'),
+      'line-strong': v('--border-strong'),
+      brand: v('--brand'),
+      'brand-hover': v('--brand-hover'),
+      accent: v('--accent'),
+      'accent-strong': v('--accent-strong'),
+      'accent-text': v('--accent-strong-text'),
+      fg: v('--text'),
+      muted: v('--text-muted'),
+      subtle: v('--text-subtle'),
+      disabled: v('--text-disabled'),
+      danger: v('--danger'),
+      'danger-text': v('--danger-text'),
+      success: v('--success'),
+      warning: v('--warning'),
+      overlay: v('--overlay'),
+      shade: v('--shade'),
+    },
+    fontFamily: {
+      display: 'var(--font-display)',
+      sans: 'var(--font-body)',
+      mono: 'var(--font-mono)',
+    },
+    borderRadius: {
+      none: '0',
+      sm: 'var(--radius-xs)',
+      DEFAULT: 'var(--radius-sm)',
+      md: 'var(--radius-sm)',
+      lg: 'var(--radius-sm)',
+      xl: 'var(--radius-md)',
+      '2xl': 'var(--radius-lg)',
+      '3xl': 'var(--radius-xl)',
+      full: 'var(--radius-pill)',
+    },
+    boxShadow: {
+      none: 'none',
+      glow: 'var(--shadow-glow)',
+      'glow-strong': 'var(--shadow-glow-strong)',
+      popover: 'var(--shadow-popover)',
+    },
     extend: {
-      colors: {
-        void: { 950: '#06070A', 900: '#090A0F', 800: '#0E1017', 700: '#12141D', 600: '#191C28', 500: '#232737' },
-        aether: { 300: '#B9A4FF', 400: '#9D82FF', 500: '#7C5CFF', 600: '#6243F0' },
-        rune: { 300: '#7FF3E6', 400: '#3FE0D0', 500: '#14C8B8' },
-        ember: { 400: '#FFB45C', 500: '#FF9533' },
-      },
-      fontFamily: {
-        sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-      },
-      transitionTimingFunction: {
-        'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
-      },
-      boxShadow: {
-        glow: '0 0 0 1px rgba(124,92,255,.35), 0 8px 40px -8px rgba(124,92,255,.55)',
-        'glow-rune': '0 0 0 1px rgba(63,224,208,.35), 0 8px 40px -8px rgba(63,224,208,.45)',
-      },
+      transitionTimingFunction: { 'out-expo': 'var(--ease-out-expo)' },
+      letterSpacing: { display: 'var(--tracking-display)', label: 'var(--tracking-label)' },
     },
   },
   plugins: [],

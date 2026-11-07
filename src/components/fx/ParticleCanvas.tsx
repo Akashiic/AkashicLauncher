@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { tokenRgb } from '@/theme'
 
 interface P {
   x: number
@@ -8,12 +9,12 @@ interface P {
   vy: number
   r: number
   life: number
-  hue: number
+  color: string // "r, g, b" lido do tema
   tw: number
 }
 
 /**
- * Poeira estelar + brasas flutuantes em Canvas 2D, ~60fps, com parallax por profundidade.
+ * Brasas e cinzas flutuantes (cores do tema) em Canvas 2D, ~60fps, com parallax por profundidade.
  * Pausa automaticamente quando a janela fica oculta.
  */
 export function ParticleCanvas({ mouse }: { mouse: React.MutableRefObject<{ x: number; y: number }> }) {
@@ -27,19 +28,22 @@ export function ParticleCanvas({ mouse }: { mouse: React.MutableRefObject<{ x: n
     let dpr = 1
     let raf = 0
     let ps: P[] = []
+    // brasas nas cores de destaque do tema + cinzas em tom neutro
+    const EMBERS = [tokenRgb('--accent'), tokenRgb('--accent-strong'), tokenRgb('--brand-hover')]
+    const ASH = tokenRgb('--text-muted')
 
     const spawn = (anywhere: boolean): P => {
       const z = Math.random()
-      const ember = Math.random() < 0.28
+      const ember = Math.random() < 0.7
       return {
         x: Math.random() * w,
         y: anywhere ? Math.random() * h : h + 10,
         z,
         vx: (Math.random() - 0.5) * 0.12,
         vy: -(0.08 + Math.random() * 0.35) * (0.4 + z),
-        r: (ember ? 1.1 : 0.6) + z * (ember ? 1.8 : 1.2),
+        r: (ember ? 1 : 0.5) + z * (ember ? 1.6 : 1),
         life: Math.random() * Math.PI * 2,
-        hue: ember ? 22 + Math.random() * 20 : Math.random() < 0.5 ? 255 : 172,
+        color: ember ? EMBERS[Math.floor(Math.random() * EMBERS.length)] : ASH,
         tw: 0.6 + Math.random() * 1.6,
       }
     }
@@ -86,7 +90,7 @@ export function ParticleCanvas({ mouse }: { mouse: React.MutableRefObject<{ x: n
         const y = p.y - oy
         const glowR = p.r * 5
         const g = ctx.createRadialGradient(x, y, 0, x, y, glowR)
-        const col = p.hue < 60 ? `hsla(${p.hue},100%,62%,` : `hsla(${p.hue},90%,75%,`
+        const col = `rgba(${p.color}, `
         g.addColorStop(0, col + a + ')')
         g.addColorStop(0.25, col + a * 0.35 + ')')
         g.addColorStop(1, col + '0)')

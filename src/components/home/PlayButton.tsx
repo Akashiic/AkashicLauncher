@@ -58,19 +58,20 @@ export function PlayButton() {
   }
 
   const busy = phase === 'verifying' || phase === 'downloading' || phase === 'launching'
+  // JOGAR: fundo --brand, borda 2px --accent; hover --brand-hover + brilho; bloqueado = 40% de opacidade
   const palette =
-    blocked ? 'from-slate-600 to-slate-700 shadow-none'
-    : phase === 'running' ? 'from-emerald-500 to-teal-600 shadow-[0_10px_50px_-10px_rgba(16,185,129,.8)]'
-    : busy ? 'from-aether-600 to-aether-500 shadow-[0_10px_50px_-12px_rgba(124,92,255,.9)]'
-    : 'from-aether-400 via-aether-500 to-rune-500 shadow-[0_12px_60px_-10px_rgba(124,92,255,.95)]'
+    blocked ? 'bg-brand border-accent opacity-40 cursor-not-allowed'
+    : phase === 'running' ? 'bg-surface-2 border-success hover:bg-surface'
+    : busy ? 'bg-brand border-accent shadow-glow'
+    : 'bg-brand border-accent hover:bg-brand-hover hover:shadow-glow-strong'
 
   return (
     <div className="relative">
       {/* halo pulsante quando pronto */}
       {phase === 'ready' && !blocked && (
         <motion.div
-          className="pointer-events-none absolute -inset-2 rounded-[22px] bg-gradient-to-r from-aether-500/40 to-rune-400/40 blur-xl"
-          animate={{ opacity: [0.35, 0.8, 0.35] }}
+          className="pointer-events-none absolute -inset-1.5 rounded-2xl bg-accent/30 blur-lg"
+          animate={{ opacity: [0.2, 0.6, 0.2] }}
           transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
         />
       )}
@@ -82,9 +83,10 @@ export function PlayButton() {
         whileTap={{ scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 400, damping: 22 }}
         aria-live="polite"
-        style={{ '--glow': '255 255 255' } as React.CSSProperties}
+        aria-disabled={blocked || undefined}
+        style={{ '--glow': phase === 'running' ? 'var(--success)' : 'var(--accent-strong)' } as React.CSSProperties}
         className={cn(
-          'glow-border relative flex h-16 w-[300px] items-center gap-4 overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br px-6 text-left text-white',
+          'glow-border relative flex h-16 w-[300px] items-center gap-4 overflow-hidden rounded-xl border-2 px-6 text-left text-fg transition-[background-color,box-shadow] duration-300',
           (phase === 'ready' && !blocked) || busy ? 'shimmer' : '',
           busy && 'shimmer-fast',
           palette,
@@ -98,7 +100,7 @@ export function PlayButton() {
               animate={{ opacity: 1, width: `${Math.max(2, progress * 100)}%` }}
               exit={{ opacity: 0 }}
               transition={{ width: { type: 'spring', stiffness: 120, damping: 24 }, opacity: { duration: 0.3 } }}
-              className="progress-stripes absolute inset-y-0 left-0 bg-white/15"
+              className="progress-stripes absolute inset-y-0 left-0 bg-brand-hover"
             />
           )}
         </AnimatePresence>
@@ -111,10 +113,10 @@ export function PlayButton() {
             transition={{ duration: 0.35, ease: EASE }}
             className="relative z-[3] flex items-center gap-4"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 backdrop-blur">{busy ? <motion.span animate={{ rotate: phase === 'launching' ? [0, -8, 8, 0] : 0 }} transition={{ repeat: Infinity, duration: 0.6 }}>{view.icon}</motion.span> : view.icon}</span>
+            <span className={cn('grid h-10 w-10 place-items-center rounded-lg', phase === 'running' ? 'bg-success/15 text-success' : 'bg-shade/30')}>{busy ? <motion.span animate={{ rotate: phase === 'launching' ? [0, -8, 8, 0] : 0 }} transition={{ repeat: Infinity, duration: 0.6 }}>{view.icon}</motion.span> : view.icon}</span>
             <span className="flex flex-col">
-              <span className="font-display text-xl font-bold leading-none tracking-[0.12em]">{view.title}</span>
-              <span className="mt-1 text-[11px] font-medium text-white/75">{view.sub}</span>
+              <span className="font-display text-[30px]">{view.title}</span>
+              <span className="mt-0.5 text-xs text-fg/80">{view.sub}</span>
             </span>
           </motion.span>
         </AnimatePresence>

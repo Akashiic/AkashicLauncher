@@ -8,6 +8,7 @@ import { useUi } from '@/store/ui'
 import { audio } from '@/audio/AudioManager'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { EASE } from '@/lib/cn'
+import { Versioned } from '@/components/ui/Version'
 
 const fmtTime = (s: number) => (s < 60 ? `${Math.ceil(s)}s` : `${Math.floor(s / 60)}m ${Math.ceil(s % 60)}s`)
 
@@ -33,29 +34,31 @@ function ProgressPanel() {
         >
           <div className="mb-2 flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">{title}</div>
-              <div className="truncate font-mono text-[11px] text-slate-400">{currentFile || '…'}</div>
+              <div className="text-sm font-semibold text-fg">
+                <Versioned text={title} />
+              </div>
+              <div className="truncate font-mono text-[11px] text-muted">{currentFile || '…'}</div>
             </div>
             <div className="shrink-0 text-right">
-              <div className="font-display text-2xl font-bold tabular-nums text-white">
+              <div className="font-display text-[34px] tabular-nums text-accent-strong">
                 {Math.round(progress * 100)}
-                <span className="text-sm text-slate-400">%</span>
+                <span className="text-lg text-muted">%</span>
               </div>
             </div>
           </div>
-          <div className="relative h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
+          <div className="progress-track relative h-2.5 overflow-hidden rounded-full">
             <motion.div
-              className="shimmer shimmer-fast absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-aether-500 via-aether-400 to-rune-400 shadow-[0_0_20px_rgba(124,92,255,.8)]"
+              className="progress-fill shimmer shimmer-fast absolute inset-y-0 left-0 rounded-full"
               animate={{ width: `${progress * 100}%` }}
               transition={{ type: 'spring', stiffness: 90, damping: 20 }}
             />
           </div>
-          <div className="mt-1.5 flex justify-between font-mono text-[11px] text-slate-400">
+          <div className="mt-1.5 flex justify-between font-mono text-[11px] text-muted">
             <span>{right}</span>
             <span>
               {phase !== 'launching' && (
                 <>
-                  <span className="text-rune-300">{speed.toFixed(1)} MB/s</span> · restam {fmtTime(eta)}
+                  <span className="text-accent-text">{speed.toFixed(1)} MB/s</span> · restam {fmtTime(eta)}
                 </>
               )}
             </span>
@@ -78,7 +81,7 @@ export function ActionBar() {
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.25, duration: 0.8, ease: EASE }}
-      className="glass-strong relative flex items-center gap-5 rounded-3xl p-3 pl-5 shadow-2xl shadow-black/40"
+      className="panel-raised relative flex items-center gap-5 rounded-3xl p-3 pl-5 shadow-popover"
     >
       <AnimatePresence mode="popLayout" initial={false}>
         {idle ? (
@@ -92,9 +95,9 @@ export function ActionBar() {
                     audio.play('open')
                     openSettings('performance')
                   }}
-                  className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.07] hover:text-white"
+                  className="flex h-10 items-center gap-2 rounded-xl border border-line bg-overlay/[0.03] px-3 text-xs font-medium text-muted transition-colors hover:bg-overlay/[0.07] hover:text-fg"
                 >
-                  <MemoryStick size={15} className="text-aether-300" /> {memory} GB
+                  <MemoryStick size={15} className="text-accent-strong" /> {memory} GB
                 </button>
               </Tooltip>
               <Tooltip content="Verificar integridade dos arquivos">
@@ -103,7 +106,7 @@ export function ActionBar() {
                   aria-label="Verificar integridade"
                   onMouseEnter={() => audio.play('hover')}
                   onClick={verifyOnly}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 transition-colors hover:bg-white/[0.07] hover:text-white disabled:opacity-40"
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-overlay/[0.03] text-muted transition-colors hover:bg-overlay/[0.07] hover:text-fg disabled:opacity-40"
                 >
                   <FileCheck2 size={16} />
                 </button>
@@ -116,7 +119,7 @@ export function ActionBar() {
                     audio.play('open')
                     setLogsOpen(true)
                   }}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 transition-colors hover:bg-white/[0.07] hover:text-white"
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-overlay/[0.03] text-muted transition-colors hover:bg-overlay/[0.07] hover:text-fg"
                 >
                   <Terminal size={16} />
                 </button>

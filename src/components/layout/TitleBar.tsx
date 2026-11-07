@@ -20,8 +20,8 @@ function WinButton({ onClick, label, children, danger }: { onClick: () => void; 
         onClick()
       }}
       className={cn(
-        'no-drag grid h-full w-12 place-items-center text-slate-400 transition-colors duration-200',
-        danger ? 'hover:bg-rose-500/90 hover:text-white' : 'hover:bg-white/[0.07] hover:text-white',
+        'no-drag grid h-full w-12 place-items-center text-muted transition-colors duration-200',
+        danger ? 'hover:bg-danger/90 hover:text-fg' : 'hover:bg-overlay/[0.07] hover:text-fg',
       )}
     >
       {children}
@@ -38,9 +38,9 @@ function SaveIndicator() {
           initial={{ opacity: 0, y: -4, filter: 'blur(4px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           exit={{ opacity: 0, y: -4, filter: 'blur(4px)' }}
-          className={cn('flex items-center gap-1.5 text-[11px] font-medium', state === 'error' ? 'text-rose-300' : 'text-slate-400')}
+          className={cn('flex items-center gap-1.5 text-xs', state === 'error' ? 'text-fg' : 'text-muted')}
         >
-          {state === 'saving' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} className="text-rune-400" />}
+          {state === 'saving' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} className="text-success" />}
           {state === 'saving' ? 'Salvando…' : state === 'saved' ? 'Configurações salvas' : 'Erro ao salvar'}
         </motion.div>
       )}
@@ -71,7 +71,7 @@ function VolumeQuick() {
             audio.play(a.bgm.muted ? 'toggleOn' : 'toggleOff')
             setAudio('bgm', { muted: !a.bgm.muted })
           }}
-          className={cn('grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-white/[0.07]', a.bgm.muted ? 'text-slate-500' : 'text-aether-300')}
+          className={cn('grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-overlay/[0.07]', a.bgm.muted ? 'text-muted' : 'text-fg')}
         >
           <Music2 size={15} className={cn(a.bgm.muted && 'opacity-50')} />
         </button>
@@ -84,7 +84,7 @@ function VolumeQuick() {
             audio.play('click')
             setOpen((v) => !v)
           }}
-          className={cn('grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-white/[0.07]', allMuted ? 'text-slate-500' : 'text-slate-200')}
+          className={cn('grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-overlay/[0.07]', allMuted ? 'text-muted' : 'text-fg')}
         >
           {allMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </button>
@@ -96,11 +96,11 @@ function VolumeQuick() {
             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: -6, scale: 0.97, filter: 'blur(4px)' }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="glass-strong absolute right-0 top-10 z-50 w-64 rounded-2xl p-4 shadow-2xl shadow-black/50"
+            className="panel-raised absolute right-0 top-10 z-50 w-64 rounded-2xl p-4 shadow-popover"
           >
             <div className="mb-3 flex items-center justify-between">
               <span className="label">Volume geral</span>
-              <span className="font-mono text-xs text-slate-300">{Math.round(a.master.volume * 100)}%</span>
+              <span className="font-mono text-xs text-muted">{Math.round(a.master.volume * 100)}%</span>
             </div>
             <Slider label="Volume geral" min={0} max={100} value={Math.round(a.master.volume * 100)} onChange={(v) => setAudio('master', { volume: v / 100, muted: false })} />
             <button
@@ -108,7 +108,7 @@ function VolumeQuick() {
                 audio.play('click')
                 setAudio('master', { muted: !a.master.muted })
               }}
-              className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.04] py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.08]"
+              className="mt-3 w-full rounded-lg border border-line bg-overlay/[0.04] py-1.5 text-xs font-medium text-muted transition-colors hover:bg-overlay/[0.08]"
             >
               {a.master.muted ? 'Ativar som' : 'Silenciar tudo'}
             </button>
@@ -125,12 +125,12 @@ export function TitleBar() {
   useEffect(() => bridge.window.onMaximized(setMax), [])
 
   return (
-    <header className="drag relative z-40 flex h-10 shrink-0 items-center justify-between border-b border-white/[0.06] bg-void-950/40 pl-4 backdrop-blur-md">
+    <header className="drag relative z-40 flex h-10 shrink-0 items-center justify-between border-b border-accent/40 bg-brand pl-4">
       <div className="flex items-center gap-3">
-        <span className="font-display text-[13px] font-semibold tracking-[0.22em] text-slate-300">
-          AKASHIC<span className="text-aether-400">·</span>LAUNCHER
+        <span className="font-display text-[19px] text-fg">
+          Forbidden Series <span className="text-muted">· Launcher</span>
         </span>
-        <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-slate-400">v0.1.0</span>
+        <span className="rounded-md border border-line bg-shade/30 px-1.5 py-0.5 font-mono text-[11px] text-muted">v0.1.0</span>
         <SaveIndicator />
       </div>
       <div className="flex h-full items-center">
@@ -144,7 +144,7 @@ export function TitleBar() {
                 audio.play('open')
                 openSettings()
               }}
-              className="no-drag grid h-8 w-8 place-items-center rounded-lg text-slate-300 transition-colors hover:bg-white/[0.07] hover:text-white"
+              className="no-drag grid h-8 w-8 place-items-center rounded-lg text-muted transition-colors hover:bg-overlay/[0.07] hover:text-fg"
             >
               <Settings2 size={16} />
             </button>

@@ -6,6 +6,7 @@ import { GlowCard } from '@/components/ui/GlowCard'
 import { OptionalModsList } from '@/components/settings/OptionalModsList'
 import { OPTIONAL_MODS, useSettings } from '@/store/settings'
 import { EASE } from '@/lib/cn'
+import { Versioned } from '@/components/ui/Version'
 
 export function ModpackPage() {
   const [q, setQ] = useState('')
@@ -22,15 +23,17 @@ export function ModpackPage() {
 
   return (
     <div className="h-full overflow-y-auto px-8 py-8">
-      <h1 className="font-display text-3xl font-bold text-white">Modpack & Opcionais</h1>
-      <p className="mt-1 text-sm text-slate-400">Akashic Survival 3.4 · Minecraft 1.7.10</p>
+      <h1 className="font-display text-[48px] text-fg">Modpack & Opcionais</h1>
+      <p className="mt-1 text-sm text-muted">
+        <Versioned text="Akashic Survival 3.4 · Minecraft 1.7.10" />
+      </p>
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s, i) => (
           <GlowCard key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, ease: EASE, duration: 0.6 }} className="p-4">
-            <s.icon size={16} className="relative z-[3] text-aether-300" />
-            <div className="relative z-[3] mt-3 font-display text-xl font-semibold text-white">{s.value}</div>
-            <div className="relative z-[3] text-xs text-slate-400">{s.label}</div>
+            <s.icon size={16} className="relative z-[3] text-accent-strong" />
+            <div className="relative z-[3] mt-3 font-display text-[32px] text-accent-strong">{s.value}</div>
+            <div className="relative z-[3] text-xs text-muted">{s.label}</div>
           </GlowCard>
         ))}
       </div>
@@ -44,27 +47,27 @@ export function ModpackPage() {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="label">Principais mods inclusos</h2>
           </div>
-          <div className="glass rounded-2xl p-3">
+          <div className="panel rounded-2xl p-3">
             <div className="relative mb-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Buscar mod ou categoria…"
-                className="h-10 w-full rounded-xl border border-white/10 bg-black/30 pl-9 pr-3 text-sm text-white placeholder:text-slate-500 transition-colors focus:border-aether-400/50 focus:outline-none"
+                className="h-10 w-full rounded-xl border border-line bg-bg/70 pl-9 pr-3 text-sm text-fg placeholder:text-subtle transition-colors focus:border-accent focus:outline-none"
               />
             </div>
             <ul className="max-h-[420px] overflow-y-auto pr-1">
               {list.map(([name, ver, cat], i) => (
-                <motion.li key={name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/[0.04]">
-                  <span className="text-slate-200">{name}</span>
+                <motion.li key={name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-overlay/[0.04]">
+                  <span className="text-fg">{name}</span>
                   <span className="flex items-center gap-3">
-                    <span className="text-[11px] text-slate-500">{cat}</span>
-                    <span className="font-mono text-[11px] text-slate-400">{ver}</span>
+                    <span className="text-[11px] text-subtle">{cat}</span>
+                    <span className="font-mono text-[11px] text-muted">{ver}</span>
                   </span>
                 </motion.li>
               ))}
-              {list.length === 0 && <li className="px-3 py-6 text-center text-sm text-slate-500">Nenhum mod encontrado.</li>}
+              {list.length === 0 && <li className="px-3 py-6 text-center text-sm text-subtle">Nenhum mod encontrado.</li>}
             </ul>
           </div>
         </section>

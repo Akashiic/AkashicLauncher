@@ -6,6 +6,7 @@ import { ActionBar } from '@/components/home/ActionBar'
 import { GlowCard } from '@/components/ui/GlowCard'
 import { useSettings } from '@/store/settings'
 import { EASE } from '@/lib/cn'
+import { Versioned } from '@/components/ui/Version'
 
 export function HomePage() {
   const nickname = useSettings((s) => s.settings.nickname)
@@ -16,37 +17,38 @@ export function HomePage() {
           {/* Hero */}
           <div className="flex flex-col justify-end">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-full border border-aether-400/30 bg-aether-500/10 px-3 py-1 text-[11px] font-semibold text-aether-200">
+              <span className="flex items-center gap-1.5 rounded-full border border-accent bg-brand/40 px-3 py-1 text-xs font-semibold text-fg">
                 <Sparkles size={12} /> Patch 3.4 disponível
               </span>
-              <span className="text-xs text-slate-500">Bem-vindo de volta, {nickname}</span>
+              <span className="text-xs text-subtle">Bem-vindo de volta, {nickname}</span>
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 16, filter: 'blur(10px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               transition={{ delay: 0.05, duration: 0.9, ease: EASE }}
-              className="mt-4 font-display text-[54px] font-bold leading-[1.02] tracking-tight"
+              className="mt-4"
             >
-              <span className="text-gradient">Ecos do Vazio</span>
-              <br />
-              <span className="text-white/90">aguardam você.</span>
+              <span className="label block text-accent-text">Forbidden Series</span>
+              <span className="mt-2 block font-display text-[96px] leading-[0.92] text-fg">
+                Entre no <span className="text-accent-strong">Proibido.</span>
+              </span>
             </motion.h1>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-400">
-              Modpack 1.7.10 com magia, tecnologia e exploração. Nova dimensão flutuante, chefes inéditos e progressão de quests reformulada.
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
+              <Versioned text="Modpack 1.7.10 com magia, tecnologia e exploração. Nova dimensão flutuante, chefes inéditos e progressão de quests reformulada." />
             </motion.p>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.7, ease: EASE }} className="mt-6 flex gap-3">
               <GlowCard className="flex items-center gap-3 px-4 py-3">
-                <Swords size={18} className="relative z-[3] text-ember-400" />
+                <Swords size={18} className="relative z-[3] text-accent-strong" />
                 <div className="relative z-[3]">
-                  <div className="text-xs text-slate-400">Evento ativo</div>
-                  <div className="text-sm font-semibold text-white">Noite das Brasas</div>
+                  <div className="text-xs text-muted">Evento ativo</div>
+                  <div className="text-sm font-semibold text-fg">Noite das Brasas</div>
                 </div>
               </GlowCard>
-              <GlowCard className="flex items-center gap-3 px-4 py-3" glow="63 224 208">
-                <Trophy size={18} className="relative z-[3] text-rune-400" />
+              <GlowCard className="flex items-center gap-3 px-4 py-3">
+                <Trophy size={18} className="relative z-[3] text-accent-strong" />
                 <div className="relative z-[3]">
-                  <div className="text-xs text-slate-400">Temporada</div>
-                  <div className="text-sm font-semibold text-white">S3 · 23 dias restantes</div>
+                  <div className="text-xs text-muted">Temporada</div>
+                  <div className="text-sm font-semibold text-fg">S3 · 23 dias restantes</div>
                 </div>
               </GlowCard>
             </motion.div>

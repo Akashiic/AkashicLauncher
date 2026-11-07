@@ -4,7 +4,7 @@ import { cn, SPRING } from '@/lib/cn'
 import { audio, type SfxName } from '@/audio/AudioManager'
 import { useGlow } from '@/hooks/useGlow'
 
-type Variant = 'primary' | 'glass' | 'ghost' | 'danger' | 'rune'
+type Variant = 'primary' | 'panel' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
@@ -16,11 +16,10 @@ export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'>
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-gradient-to-br from-aether-500 to-aether-600 text-white shadow-glow border border-white/15',
-  rune: 'bg-gradient-to-br from-rune-400/90 to-rune-500 text-void-950 shadow-glow-rune border border-white/20',
-  glass: 'glass glow-border text-slate-100 hover:bg-white/[0.06]',
-  ghost: 'text-slate-300 hover:text-white hover:bg-white/[0.06] border border-transparent',
-  danger: 'bg-rose-500/15 text-rose-200 border border-rose-400/30 hover:bg-rose-500/25',
+  primary: 'bg-brand text-fg border-2 border-accent hover:bg-brand-hover hover:shadow-glow',
+  panel: 'panel glow-border text-fg hover:border-line-strong hover:bg-overlay/[0.04]',
+  ghost: 'text-muted hover:text-fg hover:bg-overlay/[0.06] border border-transparent',
+  danger: 'bg-danger/15 text-danger-text border border-danger/40 hover:bg-danger/25',
 }
 const sizes: Record<Size, string> = {
   sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
@@ -29,7 +28,7 @@ const sizes: Record<Size, string> = {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'glass', size = 'md', icon, sound = 'click', className, children, onMouseEnter, onPointerDown, onMouseMove, disabled, ...rest },
+  { variant = 'panel', size = 'md', icon, sound = 'click', className, children, onMouseEnter, onPointerDown, onMouseMove, disabled, ...rest },
   ref,
 ) {
   const glow = useGlow<HTMLButtonElement>()
@@ -53,7 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         onMouseMove?.(e)
       }}
       className={cn(
-        'no-drag relative inline-flex select-none items-center justify-center font-semibold tracking-wide transition-colors duration-300 ease-out-expo disabled:cursor-not-allowed disabled:opacity-40',
+        'no-drag relative inline-flex select-none items-center justify-center font-semibold uppercase tracking-label transition-[color,background-color,border-color,box-shadow] duration-300 ease-out-expo disabled:cursor-not-allowed disabled:opacity-40',
         variants[variant],
         sizes[size],
         className,

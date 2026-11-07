@@ -7,11 +7,13 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
 import { cn } from '@/lib/cn'
+import { TONE_VAR } from '@/theme'
+import { Versioned } from '@/components/ui/Version'
 
 const STATE = {
-  online: { label: 'Online', dot: 'bg-emerald-400', text: 'text-emerald-300', glow: '52 211 153' },
-  maintenance: { label: 'Manutenção', dot: 'bg-amber-400', text: 'text-amber-300', glow: '251 191 36' },
-  offline: { label: 'Offline', dot: 'bg-rose-400', text: 'text-rose-300', glow: '251 113 133' },
+  online: { label: 'Online', dot: 'bg-success', text: 'text-success', glow: TONE_VAR.success },
+  maintenance: { label: 'Manutenção', dot: 'bg-warning', text: 'text-warning', glow: TONE_VAR.warning },
+  offline: { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text', glow: TONE_VAR.danger },
 } as const
 
 function AnimatedNumber({ value, className }: { value: number | string; className?: string }) {
@@ -35,7 +37,7 @@ export function ServerStatus() {
 
   const s = STATE[state]
   const max = Math.max(...history, 1)
-  const pingColor = ping < 50 ? 'text-emerald-300' : ping < 100 ? 'text-amber-300' : 'text-rose-300'
+  const pingColor = ping < 50 ? 'text-success' : ping < 100 ? 'text-warning' : 'text-danger-text'
 
   return (
     <GlowCard glow={s.glow} className="p-5">
@@ -43,7 +45,7 @@ export function ServerStatus() {
         <div>
           <div className="label mb-2">Servidor</div>
           <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-semibold text-white">play.akashic.gg</span>
+            <span className="text-lg font-semibold text-fg">play.akashic.gg</span>
             <Tooltip content="Copiar IP">
               <button
                 aria-label="Copiar IP"
@@ -53,7 +55,7 @@ export function ServerStatus() {
                   navigator.clipboard?.writeText('play.akashic.gg').catch(() => {})
                   toast({ kind: 'info', title: 'IP copiado', body: 'play.akashic.gg' }, 2000)
                 }}
-                className="rounded-md p-1 text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-200"
+                className="rounded-md p-1 text-subtle transition-colors hover:bg-overlay/[0.06] hover:text-fg"
               >
                 <Copy size={13} />
               </button>
@@ -67,7 +69,7 @@ export function ServerStatus() {
               audio.play('tab')
               cycleState()
             }}
-            className={cn('flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold', s.text)}
+            className={cn('flex items-center gap-2 rounded-full border border-line bg-bg/60 px-3 py-1 text-xs font-semibold', s.text)}
           >
             <span className="relative flex h-2 w-2">
               <span className={cn('absolute h-full w-full rounded-full pulse-ring', s.dot)} />
@@ -79,29 +81,29 @@ export function ServerStatus() {
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <div className="rounded-xl border border-line bg-bg/60 p-3">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted">
             <Users size={12} /> Jogadores
           </div>
-          <div className="mt-1 font-display text-xl font-semibold text-white">
+          <div className="mt-1 font-display text-[32px] text-accent-strong">
             <AnimatedNumber value={players} />
-            <span className="text-sm text-slate-500">/{maxPlayers}</span>
+            <span className="text-sm text-subtle">/{maxPlayers}</span>
           </div>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <div className="rounded-xl border border-line bg-bg/60 p-3">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted">
             <Wifi size={12} /> Latência
           </div>
-          <div className={cn('mt-1 font-display text-xl font-semibold', state === 'online' ? pingColor : 'text-slate-600')}>
+          <div className={cn('mt-1 font-display text-[32px]', state === 'online' ? pingColor : 'text-subtle')}>
             {state === 'online' ? <AnimatedNumber value={ping} /> : '—'}
-            <span className="text-sm text-slate-500">ms</span>
+            <span className="text-sm text-subtle">ms</span>
           </div>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <div className="rounded-xl border border-line bg-bg/60 p-3">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted">
             <Activity size={12} /> TPS
           </div>
-          <div className="mt-1 font-display text-xl font-semibold text-white">{state === 'online' ? <AnimatedNumber value={tps.toFixed(1)} /> : <span className="text-slate-600">—</span>}</div>
+          <div className="mt-1 font-display text-[32px] text-accent-strong">{state === 'online' ? <AnimatedNumber value={tps.toFixed(1)} /> : <span className="text-subtle">—</span>}</div>
         </div>
       </div>
 
@@ -110,15 +112,17 @@ export function ServerStatus() {
         {history.map((v, i) => (
           <motion.div
             key={i}
-            className={cn('flex-1 rounded-sm', state === 'online' ? 'bg-gradient-to-t from-aether-600/40 to-rune-400/70' : 'bg-white/10')}
+            className={cn('flex-1 rounded-sm', state === 'online' ? 'bg-brand' : 'bg-track')}
             animate={{ height: `${state === 'online' ? Math.max(8, (v / max) * 100) : 8}%` }}
             transition={{ type: 'spring', stiffness: 200, damping: 24 }}
           />
         ))}
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-slate-500">
+      <div className="mt-1.5 flex justify-between text-[11px] text-subtle">
         <span>últimos 60s</span>
-        <span>Forge 1.7.10 · 186 mods</span>
+        <span>
+          <Versioned text="Forge 1.7.10 · 186 mods" />
+        </span>
       </div>
     </GlowCard>
   )

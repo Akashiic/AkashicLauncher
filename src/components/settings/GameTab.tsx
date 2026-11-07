@@ -33,17 +33,17 @@ function OptionCard<T extends string>({ active, onClick, icon: Icon, label, sub 
       aria-pressed={active}
       className={cn(
         'flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-300',
-        active ? 'border-aether-400/40 bg-aether-500/10 shadow-[0_0_24px_-8px_rgba(124,92,255,.7)]' : 'border-white/[0.07] bg-black/20 hover:border-white/15',
+        active ? 'border-accent bg-brand/40 shadow-glow' : 'border-line bg-bg/60 hover:border-line-strong',
       )}
     >
-      <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', active ? 'bg-aether-500/20 text-aether-200' : 'bg-white/[0.04] text-slate-500')}>
+      <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', active ? 'bg-brand text-fg' : 'bg-overlay/[0.04] text-subtle')}>
         <Icon size={17} />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-white">{label}</span>
-        <span className="block text-[11px] text-slate-400">{sub}</span>
+        <span className="block text-sm font-semibold text-fg">{label}</span>
+        <span className="block text-[11px] text-muted">{sub}</span>
       </span>
-      <span className={cn('ml-auto h-4 w-4 shrink-0 rounded-full border-2 transition-all', active ? 'border-aether-300 bg-aether-400 shadow-[0_0_10px_rgba(124,92,255,.9)]' : 'border-white/20')} />
+      <span className={cn('ml-auto h-4 w-4 shrink-0 rounded-full border-2 transition-all', active ? 'border-accent bg-accent-strong shadow-glow' : 'border-line-strong')} />
     </button>
   )
 }
@@ -91,9 +91,9 @@ export function GameTab() {
         <div className="grid grid-cols-3 gap-2">
           {actions.map((a) => (
             <GlowCard key={a.label} role="button" tabIndex={0} onMouseEnter={() => audio.play('hover')} onClick={a.run} whileTap={{ scale: 0.97 }} className="cursor-pointer p-4">
-              <a.icon size={18} className="relative z-[3] text-rune-300" />
-              <div className="relative z-[3] mt-3 text-sm font-semibold text-white">{a.label}</div>
-              <div className="relative z-[3] font-mono text-[11px] text-slate-500">{a.sub}</div>
+              <a.icon size={18} className="relative z-[3] text-accent-strong" />
+              <div className="relative z-[3] mt-3 text-sm font-semibold text-fg">{a.label}</div>
+              <div className="relative z-[3] font-mono text-[11px] text-subtle">{a.sub}</div>
             </GlowCard>
           ))}
         </div>

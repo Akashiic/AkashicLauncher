@@ -37,7 +37,7 @@ export function Tooltip({ content, side = 'top', children, className }: { conten
             exit={{ opacity: 0, scale: 0.95, filter: 'blur(2px)', ...from[side] }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              'pointer-events-none absolute z-50 whitespace-nowrap rounded-lg border border-white/10 bg-void-700/95 px-2.5 py-1.5 text-xs font-medium text-slate-100 shadow-xl shadow-black/40',
+              'panel-raised pointer-events-none absolute z-50 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs text-fg',
               pos[side],
             )}
           >

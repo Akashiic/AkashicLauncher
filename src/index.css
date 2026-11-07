@@ -1,18 +1,8 @@
+@import './theme/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --glass-blur: 20px;
-  --accent: 124 92 255;
-  --accent-2: 63 224 208;
-  color-scheme: dark;
-}
-
-html.eco {
-  --glass-blur: 0px;
-}
 
 html,
 body,
@@ -21,7 +11,10 @@ body,
 }
 
 body {
-  @apply bg-void-900 text-slate-200 font-sans antialiased;
+  background-color: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 400;
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -43,7 +36,7 @@ textarea {
 /* ---------------------------- Scrollbars ---------------------------- */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
 ::-webkit-scrollbar {
   width: 8px;
@@ -53,64 +46,76 @@ textarea {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--accent), 0.55);
+  background: var(--accent);
   background-clip: padding-box;
 }
 
-/* ---------------------------- Focus ring ---------------------------- */
+/* ------------------------ Foco do teclado ------------------------ */
 :focus {
   outline: none;
 }
 :focus-visible {
-  outline: 2px solid rgba(var(--accent), 0.9);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 
 ::selection {
-  background: rgba(var(--accent), 0.45);
+  background: var(--brand-hover);
+  color: var(--text);
 }
 
 @layer components {
-  .glass {
-    background: linear-gradient(180deg, rgba(22, 25, 36, 0.62), rgba(14, 16, 23, 0.55));
-    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-    @apply border border-white/10;
+  /* Card / painel padrão: --surface + --border, raio 10px, sem sombra pesada */
+  .panel {
+    background-color: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: blur(var(--panel-blur));
+    -webkit-backdrop-filter: blur(var(--panel-blur));
+    border: 1px solid var(--border);
   }
-  html.eco .glass {
-    background: linear-gradient(180deg, rgba(22, 25, 36, 0.96), rgba(14, 16, 23, 0.96));
+  /* Painel elevado (popovers, modais, barra de ação) */
+  .panel-raised {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-popover);
   }
-
-  .glass-strong {
-    background: linear-gradient(180deg, rgba(24, 27, 40, 0.82), rgba(12, 14, 21, 0.8));
-    backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(150%);
-    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(150%);
-    @apply border border-white/10;
-  }
-  html.eco .glass-strong {
-    background: rgb(16, 18, 27);
+  html.eco .panel {
+    background-color: var(--surface);
   }
 
+  /* Legenda em caixa alta (Oswald) */
   .label {
-    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-label);
+    color: var(--text-muted);
   }
 
-  .text-gradient {
-    background: linear-gradient(100deg, #fff 0%, #cfc4ff 45%, #7ff3e6 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  /* Destaque de texto para a versão do jogo e números */
+  .text-version {
+    color: var(--accent-strong-text);
+    font-weight: 600;
   }
 }
 
-/* ------------------ Border glow que segue o cursor ------------------ */
+/* League Gothic: só existe no peso 400 — sempre CAIXA ALTA, sem negrito sintético */
+.font-display {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-display);
+  font-weight: 400 !important;
+  font-synthesis: none;
+  line-height: 1;
+}
+
+/* ------------------ Borda com brilho que segue o cursor ------------------ */
 .glow-border {
   position: relative;
   isolation: isolate;
@@ -122,14 +127,14 @@ textarea {
   border-radius: inherit;
   padding: 1px;
   background: radial-gradient(
-    260px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(var(--glow, var(--accent)), 0.95),
-    rgba(var(--accent-2), 0.35) 35%,
-    transparent 65%
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    var(--glow, var(--accent)),
+    color-mix(in srgb, var(--glow, var(--accent)) 30%, transparent) 40%,
+    transparent 70%
   );
   -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
+    linear-gradient(var(--shade) 0 0) content-box,
+    linear-gradient(var(--shade) 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0;
@@ -142,7 +147,11 @@ textarea {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(var(--glow, var(--accent)), 0.09), transparent 60%);
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--glow, var(--accent)) 8%, transparent),
+    transparent 60%
+  );
   opacity: 0;
   transition: opacity 0.35s var(--ease-out-expo);
   pointer-events: none;
@@ -165,9 +174,14 @@ textarea {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.38) 50%, transparent 65%);
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    color-mix(in srgb, var(--overlay) 22%, transparent) 50%,
+    transparent 62%
+  );
   transform: translateX(-120%);
-  animation: shimmer 3.2s var(--ease-out-expo) infinite;
+  animation: shimmer 3.4s var(--ease-out-expo) infinite;
   pointer-events: none;
 }
 .shimmer-fast::after {
@@ -183,14 +197,35 @@ textarea {
   }
 }
 
+/* ------------------- Barra de progresso (tema) ------------------- */
+/* trilho --track, preenchimento --brand, realce --accent na ponta */
+.progress-track {
+  background-color: var(--track);
+}
+.progress-fill {
+  background: linear-gradient(90deg, var(--brand) 0%, var(--brand) 70%, var(--brand-hover) 92%, var(--accent) 100%);
+}
+.progress-fill::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  box-shadow: var(--shadow-glow);
+  border-radius: var(--radius-pill);
+  z-index: 1;
+}
+
 .progress-stripes {
   background-image: linear-gradient(
     -45deg,
-    rgba(255, 255, 255, 0.12) 25%,
+    color-mix(in srgb, var(--overlay) 9%, transparent) 25%,
     transparent 25%,
     transparent 50%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.12) 75%,
+    color-mix(in srgb, var(--overlay) 9%, transparent) 50%,
+    color-mix(in srgb, var(--overlay) 9%, transparent) 75%,
     transparent 75%
   );
   background-size: 22px 22px;
@@ -214,16 +249,6 @@ textarea {
 }
 .pulse-ring {
   animation: pulse-ring 1.8s var(--ease-out-expo) infinite;
-}
-
-@keyframes float-slow {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
 }
 
 /* range nativo escondido (acessibilidade do slider customizado) */

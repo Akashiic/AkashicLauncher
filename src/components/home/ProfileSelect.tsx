@@ -37,16 +37,16 @@ export function ProfileSelect() {
           audio.play(open ? 'close' : 'click')
           setOpen((v) => !v)
         }}
-        className="glass glow-border flex h-16 w-72 items-center gap-3 rounded-2xl px-4 text-left transition-colors hover:bg-white/[0.05] disabled:opacity-50"
+        className="panel glow-border flex h-16 w-72 items-center gap-3 rounded-2xl px-4 text-left transition-colors hover:bg-overlay/[0.05] disabled:opacity-50"
       >
-        <span className="relative z-[3] grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-aether-500/30 to-rune-500/20 text-aether-300">
+        <span className="relative z-[3] grid h-9 w-9 place-items-center rounded-lg border border-line bg-brand text-fg">
           <Layers size={18} />
         </span>
         <span className="relative z-[3] min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-white">{current.name}</span>
-          <span className="block truncate text-[11px] text-slate-400">{current.sub}</span>
+          <span className="block truncate text-sm font-semibold text-fg">{current.name}</span>
+          <span className="block truncate text-[11px] text-muted">{current.sub}</span>
         </span>
-        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.3, ease: EASE }} className="relative z-[3] text-slate-400">
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.3, ease: EASE }} className="relative z-[3] text-muted">
           <ChevronUp size={16} />
         </motion.span>
       </button>
@@ -58,7 +58,7 @@ export function ProfileSelect() {
             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: 8, scale: 0.98, filter: 'blur(4px)' }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="glass-strong absolute bottom-[calc(100%+10px)] left-0 z-50 w-72 origin-bottom rounded-2xl p-1.5 shadow-2xl shadow-black/60"
+            className="panel-raised absolute bottom-[calc(100%+10px)] left-0 z-50 w-72 origin-bottom rounded-2xl p-1.5 shadow-popover"
           >
             <li className="label px-3 pb-1 pt-2">Perfil / Versão</li>
             {PROFILES.map((p, i) => {
@@ -74,16 +74,16 @@ export function ProfileSelect() {
                       update({ profileId: p.id })
                       setOpen(false)
                     }}
-                    className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors', active ? 'bg-aether-500/15' : 'hover:bg-white/[0.05]')}
+                    className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors', active ? 'bg-brand/15' : 'hover:bg-overlay/[0.05]')}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2 text-sm font-medium text-white">
+                      <span className="flex items-center gap-2 text-sm font-medium text-fg">
                         {p.name}
-                        <span className="rounded border border-white/10 px-1.5 text-[9px] uppercase tracking-wider text-slate-400">{p.badge}</span>
+                        <span className="rounded border border-line px-1.5 text-[9px] uppercase tracking-wider text-muted">{p.badge}</span>
                       </span>
-                      <span className="block text-[11px] text-slate-400">{p.sub}</span>
+                      <span className="block text-[11px] text-muted">{p.sub}</span>
                     </span>
-                    {active && <Check size={15} className="text-rune-400" />}
+                    {active && <Check size={15} className="text-accent-strong" />}
                   </button>
                 </motion.li>
               )

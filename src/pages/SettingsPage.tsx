@@ -22,9 +22,9 @@ export function SettingsPage() {
 
   return (
     <div className="flex h-full">
-      <div className="w-64 shrink-0 border-r border-white/[0.06] px-4 py-8">
-        <h1 className="px-3 font-display text-2xl font-bold text-white">Configurações</h1>
-        <p className="mb-6 px-3 text-xs text-slate-500">Salvas automaticamente.</p>
+      <div className="w-64 shrink-0 border-r border-line px-4 py-8">
+        <h1 className="px-3 font-display text-[40px] text-fg">Configurações</h1>
+        <p className="mb-6 px-3 text-xs text-subtle">Salvas automaticamente.</p>
         <nav className="space-y-1" role="tablist" aria-orientation="vertical">
           {TABS.map((t) => {
             const active = t.id === tab
@@ -38,13 +38,13 @@ export function SettingsPage() {
                   if (!active) audio.play('tab')
                   setTab(t.id)
                 }}
-                className={cn('relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors', active ? 'text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200')}
+                className={cn('relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors', active ? 'text-fg' : 'text-muted hover:bg-overlay/[0.04] hover:text-fg')}
               >
-                {active && <motion.span layoutId="settings-tab" className="absolute inset-0 rounded-xl border border-white/10 bg-gradient-to-r from-aether-500/20 to-transparent" transition={{ type: 'spring', stiffness: 420, damping: 36 }} />}
-                <t.icon size={17} className={cn('relative', active && 'text-aether-300')} />
+                {active && <motion.span layoutId="settings-tab" className="absolute inset-0 rounded-xl border border-accent/60 bg-brand" transition={{ type: 'spring', stiffness: 420, damping: 36 }} />}
+                <t.icon size={17} className={cn('relative', active && 'text-fg')} />
                 <span className="relative">
                   <span className="block text-sm font-medium">{t.label}</span>
-                  <span className="block text-[11px] text-slate-500">{t.sub}</span>
+                  <span className={cn('block text-xs', active ? 'text-muted' : 'text-subtle')}>{t.sub}</span>
                 </span>
               </button>
             )
