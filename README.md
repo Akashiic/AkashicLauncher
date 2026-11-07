@@ -40,6 +40,20 @@ Todas as cores, fontes, raios e sombras ficam em **um único arquivo: `src/theme
 - Logo: coloque `public/brand/logo.png` (veja `public/brand/README.md`).
 - Única exceção: `backgroundColor` em `electron/main.cjs` (cor da janela antes do React carregar) espelha `--bg-base`.
 
+## Cena 3D: "O Portal Proibido"
+
+O fundo do launcher é uma cena WebGL em tempo real (Three.js), toda procedural:
+ilha flutuante de blocos, portal com shader de energia em pixel-art, coluna de luz,
+névoa, brasas, blocos flutuantes, ilhas distantes e pós-processamento (bloom,
+aberração cromática, vinheta e granulado).
+
+- Código em `src/scene/` (`PortalScene.ts`, `voxels.ts`, `shaders.ts`); cores em `--scene-*` no `tokens.css`.
+- Carregada sob demanda (chunk separado), aparece com fade quando o primeiro quadro fica pronto.
+- Pausa com a janela oculta/minimizada e enquanto o jogo está rodando.
+- Modo Economia ou "reduzir movimento" do sistema: um quadro estático da própria cena.
+- Sem WebGL: cai para o fundo simples (vinheta + brasas 2D).
+- Em dev, `window.__portal` expõe a cena (`renderAt(t)`, `setMouse(x, y)`) para gravar vídeos quadro a quadro.
+
 ## Persistência
 
 - **Electron:** `<userData>/settings.json` (escrita atômica, debounce de 350 ms).

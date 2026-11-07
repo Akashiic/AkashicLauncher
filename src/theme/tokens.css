@@ -49,6 +49,19 @@
   --avatar-eye: #c01818;
   --avatar-mouth: #5a3a2a;
 
+  /* Cena 3D "O Portal Proibido" (lidas em src/scene via readToken) */
+  --scene-sky-top: #030303; /* topo do céu */
+  --scene-sky-horizon: #3e0a0a; /* brilho do horizonte */
+  --scene-haze: #170606; /* névoa de distância */
+  --scene-stone-dark: #1e1a1a; /* pedra nas sombras */
+  --scene-stone: #3a3333; /* pedra base */
+  --scene-stone-light: #5c5353; /* pedra iluminada */
+  --scene-crimson: #6a1515; /* superfície carmesim da ilha */
+  --scene-crimson-light: #922222;
+  --scene-obsidian: #1c1315; /* moldura do portal */
+  --scene-portal-hot: #ff9a7a; /* núcleo quente do portal */
+  --scene-rim: #c9b8b0; /* luz de recorte (contorno dos blocos) */
+
   /* --------------------------- Tipografia --------------------------- */
   --font-display: 'League Gothic', Impact, 'Arial Narrow', sans-serif; /* títulos e botão principal */
   --font-body: 'Oswald', 'Arial Narrow', sans-serif; /* texto, menus, legendas */
