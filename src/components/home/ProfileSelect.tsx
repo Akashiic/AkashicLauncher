@@ -37,15 +37,14 @@ export function ProfileSelect() {
           audio.play(open ? 'close' : 'click')
           setOpen((v) => !v)
         }}
-        className="panel glow-border flex h-16 w-72 items-center gap-3 rounded-2xl px-4 text-left transition-colors hover:bg-overlay/[0.05] disabled:opacity-50"
+        className="panel glow-border flex h-16 w-64 items-center gap-3 rounded-2xl px-4 text-left transition-colors hover:bg-overlay/[0.05] disabled:opacity-50"
       >
         <span className="relative z-[3] grid h-9 w-9 place-items-center rounded-lg border border-line bg-brand text-fg">
           <Layers size={18} />
         </span>
         <span className="relative z-[3] min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-fg">{current.name}</span>
-          <span className="block truncate text-[11px] text-muted">{current.sub}</span>
-        </span>
+                  </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.3, ease: EASE }} className="relative z-[3] text-muted">
           <ChevronUp size={16} />
         </motion.span>

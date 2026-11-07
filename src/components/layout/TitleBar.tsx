@@ -128,9 +128,8 @@ export function TitleBar() {
     <header className="drag relative z-40 flex h-10 shrink-0 items-center justify-between border-b border-accent/40 bg-brand pl-4">
       <div className="flex items-center gap-3">
         <span className="font-display text-[19px] text-fg">
-          Forbidden Series <span className="text-muted">· Launcher</span>
+          Forbidden Series
         </span>
-        <span className="rounded-md border border-line bg-shade/30 px-1.5 py-0.5 font-mono text-[11px] text-muted">v0.1.0</span>
         <SaveIndicator />
       </div>
       <div className="flex h-full items-center">
