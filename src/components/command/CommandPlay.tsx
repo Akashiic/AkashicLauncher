@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Play, Loader2, Wrench } from 'lucide-react'
+import { Play, Loader2, Lock } from 'lucide-react'
 import { useLaunch } from '@/store/launch'
 import { useServer } from '@/store/server'
-import { useSettings } from '@/store/settings'
+import { useUi } from '@/store/ui'
+import { useFx } from '@/store/fx'
 import { audio } from '@/audio/AudioManager'
-import { useGlow } from '@/hooks/useGlow'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { cn, EASE } from '@/lib/cn'
 
 function useElapsed(since: number, on: boolean) {
@@ -21,98 +22,220 @@ function useElapsed(since: number, on: boolean) {
 
 const fmtTime = (s: number) => (s < 60 ? `${Math.ceil(s)}s` : `${Math.floor(s / 60)}m ${Math.ceil(s % 60)}s`)
 
-/** JOGAR da coluna de comando: estados, progresso dentro do botão e linha de contexto abaixo. */
+// brasas pixeladas (posições fixas, atrasos escalonados)
+const EMBERS = Array.from({ length: 14 }, (_, i) => ({
+  left: `${6 + ((i * 53) % 88)}%`,
+  delay: `${((i * 0.41) % 1.7).toFixed(2)}s`,
+  dx: `${((i * 37) % 34) - 17}px`,
+  size: i % 3 === 0 ? 5 : 4,
+}))
+
+const SERVER = {
+  online: { label: 'Online', dot: 'bg-success', text: 'text-success' },
+  maintenance: { label: 'Manutenção', dot: 'bg-warning', text: 'text-warning' },
+  offline: { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text' },
+} as const
+
+/**
+ * JOGAR: o coração do launcher. Energia girando na borda, lava viva por dentro,
+ * brasas no hover e ligação direta com o portal da cena (acende, carrega e pulsa).
+ */
 export function CommandPlay() {
   const { phase, progress, speed, eta, filesDone, filesTotal, currentFile, play, stop, cancel, sessionStart } = useLaunch()
-  const server = useServer((s) => s.state)
-  const memory = useSettings((s) => s.settings.memoryGb)
-  const glow = useGlow<HTMLButtonElement>()
+  const { state: server, players, maxPlayers, cycleState } = useServer()
+  const route = useUi((s) => s.route)
+  const { playHover, setPlayHover, firePulse } = useFx()
   const elapsed = useElapsed(sessionStart, phase === 'running')
+  const [shock, setShock] = useState(0)
+
   const blocked = phase === 'ready' && server !== 'online'
+  const ready = phase === 'ready' && !blocked
   const busy = phase === 'verifying' || phase === 'downloading' || phase === 'launching'
+  const live = phase === 'running' || phase === 'stopping'
+  const hot = (ready && playHover) || busy
   const pct = Math.round(progress * 100)
+  const s = SERVER[server]
 
   const view = (() => {
-    if (blocked)
-      return { key: 'blocked', label: server === 'maintenance' ? 'MANUTENÇÃO' : 'OFFLINE', right: null, icon: <Wrench size={18} />, line: 'Servidor indisponível · tente em instantes' }
+    if (blocked) return { key: 'blocked', label: server === 'maintenance' ? 'MANUTENÇÃO' : 'OFFLINE', right: null, icon: <Lock size={18} /> }
     switch (phase) {
       case 'ready':
-        return { key: 'ready', label: 'JOGAR', right: null, icon: <Play size={20} fill="currentColor" />, line: `Tudo pronto · ${memory} GB de RAM` }
+        return { key: 'ready', label: 'JOGAR', right: null, icon: <Play size={22} fill="currentColor" /> }
       case 'verifying':
-        return { key: 'verifying', label: 'VERIFICANDO', right: `${pct}%`, icon: null, line: `${filesDone}/${filesTotal} arquivos · clique para cancelar` }
+        return { key: 'verifying', label: 'VERIFICANDO', right: `${pct}%`, icon: null }
       case 'downloading':
-        return { key: 'downloading', label: 'ATUALIZANDO', right: `${pct}%`, icon: null, line: `${speed.toFixed(1)} MB/s · restam ${fmtTime(eta)} · clique para cancelar` }
+        return { key: 'downloading', label: 'ATUALIZANDO', right: `${pct}%`, icon: null }
       case 'launching':
-        return { key: 'launching', label: 'INICIANDO', right: `${pct}%`, icon: null, line: currentFile || 'Carregando mods…' }
+        return { key: 'launching', label: 'ABRINDO O PORTAL', right: `${pct}%`, icon: null }
       case 'running':
-        return { key: 'running', label: 'EM EXECUÇÃO', right: null, icon: <span className="h-2.5 w-2.5 rounded-full bg-success shadow-glow" />, line: `Sessão ${elapsed} · clique para fechar o jogo` }
+        return { key: 'running', label: 'EM EXECUÇÃO', right: null, icon: <span className="h-2.5 w-2.5 rounded-full bg-success shadow-glow" /> }
       case 'stopping':
-        return { key: 'stopping', label: 'FECHANDO', right: null, icon: <Loader2 size={18} className="animate-spin" />, line: 'Encerrando o jogo…' }
+        return { key: 'stopping', label: 'FECHANDO', right: null, icon: <Loader2 size={18} className="animate-spin" /> }
     }
   })()
 
-  const onClick = () => {
+  const busyLine =
+    phase === 'verifying' ? `${filesDone}/${filesTotal} arquivos verificados · clique para cancelar`
+    : phase === 'downloading' ? `${speed.toFixed(1)} MB/s · restam ${fmtTime(eta)} · clique para cancelar`
+    : phase === 'launching' ? currentFile || 'Carregando mods…'
+    : phase === 'running' ? `Sessão ${elapsed} · clique para fechar o jogo`
+    : phase === 'stopping' ? 'Encerrando o jogo…'
+    : null
+
+  const activate = () => {
     if (blocked) return audio.play('error')
-    if (phase === 'ready') play()
-    else if (phase === 'verifying' || phase === 'downloading') cancel()
+    if (phase === 'ready') {
+      setShock((n) => n + 1)
+      firePulse()
+      setPlayHover(false)
+      play()
+    } else if (phase === 'verifying' || phase === 'downloading') cancel()
     else if (phase === 'running') {
       audio.play('click')
       stop()
     }
   }
 
+  // Enter joga a partir do Início (quando nada está focado)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || route !== 'home' || phase !== 'ready') return
+      const el = document.activeElement
+      if (el && el !== document.body) return
+      e.preventDefault()
+      activate()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   return (
     <div className="flex flex-col">
-      <motion.button
-        onClick={onClick}
-        onMouseMove={glow}
-        onMouseEnter={() => audio.play('hover')}
-        whileHover={{ scale: busy || phase === 'stopping' ? 1 : 1.015 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-        aria-live="polite"
-        aria-disabled={blocked || undefined}
-        style={{ '--glow': phase === 'running' ? 'var(--success)' : 'var(--accent-strong)' } as React.CSSProperties}
-        className={cn(
-          'glow-border relative flex h-16 w-full items-center overflow-hidden rounded-xl border-2 px-4 text-fg transition-[background-color,box-shadow] duration-300',
-          blocked && 'cursor-not-allowed border-accent bg-brand opacity-40',
-          !blocked && phase === 'ready' && 'shimmer border-accent bg-brand shadow-glow hover:bg-brand-hover hover:shadow-glow-strong',
-          busy && 'border-accent bg-brand',
-          (phase === 'running' || phase === 'stopping') && 'border-success bg-surface-2 hover:bg-surface',
-        )}
-      >
-        {/* progresso dentro do botão: preenchimento vinho com ponta vermelha */}
+      <div className={cn('relative rounded-xl', hot && 'play-hot')}>
+        {/* brasas subindo (fora do botão para não serem cortadas) */}
+        <div className="play-embers" aria-hidden>
+          {EMBERS.map((e, i) => (
+            <span key={i} className="play-ember" style={{ left: e.left, width: e.size, height: e.size, animationDelay: e.delay, '--dx': e.dx } as React.CSSProperties} />
+          ))}
+        </div>
+
+        {/* onda de choque do clique */}
         <AnimatePresence>
-          {busy && (
+          {shock > 0 && (
             <motion.span
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: `${Math.max(2, progress * 100)}%` }}
+              key={shock}
+              aria-hidden
+              initial={{ opacity: 0.9, scale: 1 }}
+              animate={{ opacity: 0, scale: 1.45 }}
               exit={{ opacity: 0 }}
-              transition={{ width: { type: 'spring', stiffness: 110, damping: 22 }, opacity: { duration: 0.3 } }}
-              className="progress-stripes absolute inset-y-0 left-0 border-r-[3px] border-accent-strong bg-brand-hover"
+              transition={{ duration: 0.8, ease: EASE }}
+              className="pointer-events-none absolute inset-0 rounded-xl border-2 border-accent-strong shadow-glow-strong"
             />
           )}
         </AnimatePresence>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={view.key}
-            initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -12, filter: 'blur(6px)' }}
-            transition={{ duration: 0.3, ease: EASE }}
-            className={cn('relative z-[3] flex w-full items-center gap-3', view.right ? 'justify-between' : 'justify-center')}
-          >
-            <span className="flex items-center gap-3">
-              {view.icon}
-              <span className={cn('font-display', view.key === 'ready' ? 'text-[42px] tracking-[3px]' : 'text-[30px]')}>{view.label}</span>
-            </span>
-            {view.right && <span className="font-display text-[30px] tabular-nums">{view.right}</span>}
-          </motion.span>
-        </AnimatePresence>
-      </motion.button>
-      <span className="mt-1.5 h-4 truncate text-center text-xs text-muted" title={view.line}>
-        {view.line}
-      </span>
+
+        <motion.button
+          onClick={activate}
+          onMouseEnter={() => {
+            audio.play('hover')
+            if (ready) setPlayHover(true)
+          }}
+          onMouseLeave={() => setPlayHover(false)}
+          onFocus={() => ready && setPlayHover(true)}
+          onBlur={() => setPlayHover(false)}
+          whileHover={{ scale: ready ? 1.025 : 1 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+          aria-live="polite"
+          aria-disabled={blocked || undefined}
+          className={cn(
+            'relative flex h-[76px] w-full items-center overflow-hidden rounded-xl border-2 px-4 text-fg transition-[background-color,box-shadow,border-color] duration-300',
+            blocked && 'cursor-not-allowed border-line-strong bg-surface-2 text-muted',
+            ready && 'border-accent bg-brand shadow-glow hover:shadow-glow-strong',
+            busy && 'border-accent bg-surface-2 shadow-glow',
+            live && 'border-success bg-surface-2 hover:bg-surface',
+          )}
+        >
+          {ready && <span className="play-lava" aria-hidden />}
+          <span className="play-pixels" aria-hidden />
+
+          {/* progresso: preenchimento vinho com ponta vermelha */}
+          <AnimatePresence>
+            {busy && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: `${Math.max(2, progress * 100)}%` }}
+                exit={{ opacity: 0 }}
+                transition={{ width: { type: 'spring', stiffness: 110, damping: 22 }, opacity: { duration: 0.3 } }}
+                className="progress-stripes absolute inset-y-0 left-0 border-r-[3px] border-accent-strong bg-brand shadow-glow-strong"
+                aria-hidden
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={view.key}
+              initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -14, filter: 'blur(6px)' }}
+              transition={{ duration: 0.3, ease: EASE }}
+              className={cn('relative z-[3] flex w-full items-center gap-3', view.right ? 'justify-between' : 'justify-center')}
+            >
+              <span className="flex items-center gap-3">
+                {view.icon && (
+                  <motion.span animate={ready && playHover ? { x: [0, 3, 0] } : { x: 0 }} transition={{ duration: 0.9, repeat: ready && playHover ? Infinity : 0 }}>
+                    {view.icon}
+                  </motion.span>
+                )}
+                <span className={cn('font-display', view.key === 'ready' ? 'play-title text-[48px] tracking-[4px]' : view.key === 'launching' ? 'text-[26px]' : 'text-[30px]')}>{view.label}</span>
+              </span>
+              {view.right && <span className="play-title font-display text-[30px] tabular-nums">{view.right}</span>}
+            </motion.span>
+          </AnimatePresence>
+        </motion.button>
+
+        {/* energia girando pela borda */}
+        {(ready || busy) && <span className={cn('energy-border', busy && 'energy-fast')} aria-hidden />}
+      </div>
+
+      {/* linha de contexto: status do servidor quando parado, progresso/sessão quando ativo */}
+      <div className="mt-2 flex h-5 items-center justify-center gap-2 text-xs text-muted">
+        {busyLine ? (
+          <span className="truncate" title={busyLine}>
+            {busyLine}
+          </span>
+        ) : (
+          <>
+            <Tooltip content="Simular outro estado do servidor (mock)">
+              <button
+                aria-label={`Servidor ${s.label}`}
+                onMouseEnter={() => audio.play('hover')}
+                onClick={() => {
+                  audio.play('tab')
+                  cycleState()
+                }}
+                className="flex items-center gap-1.5 rounded-md px-1 transition-colors hover:bg-overlay/[0.06]"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className={cn('pulse-ring absolute h-full w-full rounded-full', s.dot)} />
+                  <span className={cn('relative h-2 w-2 rounded-full', s.dot)} />
+                </span>
+                <span className={cn('font-semibold', s.text)}>{s.label}</span>
+              </button>
+            </Tooltip>
+            {server === 'online' ? (
+              <>
+                <span className="tabular-nums">· {players}/{maxPlayers} jogadores</span>
+                <span className="text-subtle">·</span>
+                <kbd className="rounded border border-line bg-overlay/[0.05] px-1.5 font-sans text-[11px] text-muted">Enter ↵</kbd>
+              </>
+            ) : (
+              <span>· tente em instantes</span>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

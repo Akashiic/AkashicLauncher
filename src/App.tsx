@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Background } from '@/components/fx/Background'
 import { CommandColumn } from '@/components/command/CommandColumn'
-import { ProfileServer } from '@/components/command/ProfileServer'
 import { WindowControls } from '@/components/layout/WindowControls'
 import { HomeHero } from '@/components/layout/HomeHero'
 import { Panel } from '@/components/layout/Panel'
@@ -77,18 +76,6 @@ export default function App() {
                     </Panel>
                   ) : (
                     <HomeHero key="home" />
-                  )}
-                  {!panel && (
-                    <motion.div
-                      key="profile"
-                      initial={{ opacity: 0, y: -10, filter: 'blur(8px)' }}
-                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                      exit={{ opacity: 0, y: -8, filter: 'blur(6px)', transition: { duration: 0.2 } }}
-                      transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
-                      className="no-drag absolute left-6 top-4 z-50"
-                    >
-                      <ProfileServer />
-                    </motion.div>
                   )}
                 </AnimatePresence>
               </main>

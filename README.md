@@ -44,7 +44,7 @@ Todas as cores, fontes, raios e sombras ficam em **um único arquivo: `src/theme
 
 Janela fixa de **1000×620** (no navegador, o app aparece numa moldura do mesmo tamanho).
 
-- `src/components/command/`: a coluna à esquerda (marca, menu, card da novidade, JOGAR com progresso dentro do botão e barra do jogador com volume/música e configurações); o seletor de perfil + status do servidor flutua como chip na área aberta.
+- `src/components/command/`: a coluna à esquerda (marca, menu, card da novidade, JOGAR com progresso dentro do botão e barra do jogador com volume/música e configurações).
 - `src/components/layout/HomeHero.tsx`: slogan sobre a cena.
 - `src/components/layout/Panel.tsx`: Notícias, Modpack e Configurações abrem como painéis de vidro sobre a cena (Esc ou X fecham).
 - `src/components/layout/WindowControls.tsx`: faixa arrastável com minimizar/fechar.

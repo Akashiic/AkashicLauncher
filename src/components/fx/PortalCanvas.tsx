@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useSettings } from '@/store/settings'
 import { useLaunch } from '@/store/launch'
+import { useFx } from '@/store/fx'
 import type { PortalScene } from '@/scene/PortalScene'
 
 declare global {
@@ -59,6 +60,26 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
     window.addEventListener('mousemove', move)
     return () => window.removeEventListener('mousemove', move)
   }, [])
+
+  // o portal responde ao JOGAR: acende no hover, carrega com o progresso, pulsa no clique
+  const phase = useLaunch((s) => s.phase)
+  const progress = useLaunch((s) => s.progress)
+  const playHover = useFx((s) => s.playHover)
+  const pulse = useFx((s) => s.pulse)
+  useEffect(() => {
+    const s = sceneRef.current
+    if (!s) return
+    const energy =
+      phase === 'verifying' || phase === 'downloading' ? 0.5 + progress * 0.7
+      : phase === 'launching' ? 1.3 + progress * 0.6
+      : phase === 'running' || phase === 'stopping' ? 0.1
+      : playHover ? 0.85
+      : 0
+    s.setEnergy(energy)
+  }, [phase, progress, playHover])
+  useEffect(() => {
+    if (pulse) sceneRef.current?.pulse()
+  }, [pulse])
 
   // rodar, pausar ou congelar
   useEffect(() => {

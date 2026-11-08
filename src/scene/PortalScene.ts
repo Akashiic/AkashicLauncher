@@ -34,6 +34,10 @@ export class PortalScene {
   private portalLight!: THREE.PointLight
   private cursorLight!: THREE.PointLight
   private portalCenter = new THREE.Vector3()
+  private beamUniforms!: Record<string, THREE.IUniform>
+  private energy = 0
+  private energyTarget = 0
+  private impulse = 0
   private debrisMesh!: THREE.InstancedMesh
   private debris: Debris[] = []
 
@@ -212,10 +216,11 @@ export class PortalScene {
     this.scene.add(back)
 
     // coluna de luz subindo do portal
+    this.beamUniforms = { uTime: this.time$(), uIntensity: { value: 0.55 }, uColor: { value: p.accent } }
     const beamMat = new THREE.ShaderMaterial({
       vertexShader: beamShader.vertex,
       fragmentShader: beamShader.fragment,
-      uniforms: { uTime: this.time$(), uIntensity: { value: 0.55 }, uColor: { value: p.accent } },
+      uniforms: this.beamUniforms,
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -378,8 +383,13 @@ export class PortalScene {
   private frame(t: number) {
     this.timeUniforms.forEach((u) => (u.value = t))
     const flicker = 0.85 + Math.sin(t * 2.3) * 0.08 + Math.sin(t * 7.1) * 0.04 + Math.sin(t * 13.7) * 0.03
-    this.portalLight.intensity = 220 * flicker
-    this.portalUniforms.uIntensity.value = 0.92 + (flicker - 0.85) * 0.8
+    // energia vinda da interface (hover/progresso do JOGAR) + pulso do clique
+    this.energy += (this.energyTarget - this.energy) * 0.06
+    this.impulse *= 0.93
+    const e = this.energy + this.impulse
+    this.portalLight.intensity = 220 * flicker * (1 + e * 1.3)
+    this.portalUniforms.uIntensity.value = (0.92 + (flicker - 0.85) * 0.8) * (1 + e * 0.55)
+    this.beamUniforms.uIntensity.value = 0.55 * (1 + e * 1.6)
     this.grade.uniforms.uTime.value = t
     this.updateDebris(t)
     this.updateCamera(t)
@@ -402,6 +412,16 @@ export class PortalScene {
   /* ------------------------------------------------------------------ */
   /* API pública                                                         */
   /* ------------------------------------------------------------------ */
+
+  /** Nível de energia do portal (0 = repouso, ~1 = carregado, >1 = máximo). */
+  setEnergy(v: number) {
+    this.energyTarget = Math.max(0, v)
+  }
+
+  /** Pulso curto de energia (clique no JOGAR). */
+  pulse(strength = 1.4) {
+    this.impulse = Math.max(this.impulse, strength)
+  }
 
   /** Posição do mouse normalizada (-1..1). */
   setMouse(x: number, y: number) {
