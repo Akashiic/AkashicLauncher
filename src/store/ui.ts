@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Route = 'home' | 'modpack' | 'news' | 'settings'
+export type Route = 'home' | 'modpack' | 'news' | 'settings' | 'skin'
 export type SettingsTab = 'performance' | 'game' | 'mods' | 'audio'
 
 interface UiStore {

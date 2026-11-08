@@ -36,18 +36,9 @@
   --vignette: #60000055; /* vinheta vinho no canto superior esquerdo */
   --vignette-edge: #000000d0; /* escurecimento das bordas da tela */
 
-  /* Arte do avatar pixelado (cabeça gerada a partir do nick) */
-  --avatar-skin-1: #f2c7a5;
+  /* Skin padrão "Forbidden" desenhada por código (src/lib/skin.ts) */
   --avatar-skin-2: #d9a07a;
-  --avatar-skin-3: #b8794f;
-  --avatar-skin-4: #8d5a3b;
-  --avatar-hair-1: #1a1210;
-  --avatar-hair-2: #3b1f14;
-  --avatar-hair-3: #2a2a2a;
-  --avatar-hair-4: #4a0d0d;
-  --avatar-eye-white: #ffffff;
   --avatar-eye: #c01818;
-  --avatar-mouth: #5a3a2a;
 
   /* Cena 3D "O Portal Proibido" (lidas em src/scene via readToken) */
   --scene-sky-top: #030303; /* topo do céu */

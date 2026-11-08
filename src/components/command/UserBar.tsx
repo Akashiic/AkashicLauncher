@@ -5,7 +5,7 @@ import { useSettings } from '@/store/settings'
 import { useLaunch } from '@/store/launch'
 import { useUi } from '@/store/ui'
 import { audio } from '@/audio/AudioManager'
-import { PlayerHead } from '@/components/ui/PlayerHead'
+import { SkinHead } from '@/components/skin/SkinHead'
 import { Slider } from '@/components/ui/Slider'
 import { Switch } from '@/components/ui/Switch'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -58,14 +58,27 @@ export function UserBar() {
 
   return (
     <div ref={ref} className="relative mt-3 flex items-center gap-2.5 border-t border-line pt-3">
-      <div className="relative shrink-0 rounded-md">
-        <PlayerHead name={nickname} size={30} />
-        <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface', running ? 'bg-accent-strong' : 'bg-success')} />
-      </div>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold text-fg">{nickname}</span>
-        <span className={cn('text-xs', running ? 'text-accent-text' : 'text-success')}>{running ? 'Jogando' : 'Online'}</span>
-      </span>
+      <Tooltip content="Trocar skin" className="min-w-0 flex-1">
+        <button
+          aria-label={`${nickname}: trocar skin`}
+          aria-current={route === 'skin' ? 'page' : undefined}
+          onMouseEnter={() => audio.play('hover')}
+          onClick={() => {
+            audio.play(route === 'skin' ? 'close' : 'open')
+            navigate(route === 'skin' ? 'home' : 'skin')
+          }}
+          className={cn('-m-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-overlay/[0.06]', route === 'skin' && 'bg-brand/50')}
+        >
+          <span className="relative shrink-0">
+            <SkinHead size={30} />
+            <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface', running ? 'bg-accent-strong' : 'bg-success')} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-semibold text-fg">{nickname}</span>
+            <span className={cn('text-xs', running ? 'text-accent-text' : 'text-success')}>{running ? 'Jogando' : 'Online'}</span>
+          </span>
+        </button>
+      </Tooltip>
       <Tooltip content="Volume" disabled={open}>
         <button
           aria-label="Volume"

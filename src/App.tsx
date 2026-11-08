@@ -13,6 +13,7 @@ import { LaunchFlash } from '@/components/layout/LaunchFlash'
 import { ModpackPage } from '@/pages/ModpackPage'
 import { NewsPage } from '@/pages/NewsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { SkinPage } from '@/pages/SkinPage'
 import { useUi } from '@/store/ui'
 import { useSettings } from '@/store/settings'
 import { useServer } from '@/store/server'
@@ -25,6 +26,7 @@ const PANELS = {
   news: { label: 'Notícias', Page: NewsPage },
   modpack: { label: 'Modpack', Page: ModpackPage },
   settings: { label: 'Configurações', Page: SettingsPage },
+  skin: { label: 'Skin', Page: SkinPage },
 } as const
 
 /**

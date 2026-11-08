@@ -24,6 +24,8 @@ export interface Settings {
   ecoMode: boolean
   profileId: string
   nickname: string
+  /** Skin do jogador (PNG em data URL) ou null para a skin padrão. */
+  skinDataUrl: string | null
 }
 
 export const JVM_PRESETS: Record<Exclude<JvmPreset, 'custom'>, { label: string; hint: string; args: string }> = {
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ecoMode: false,
   profileId: 'survival',
   nickname: 'Akashi_Wanderer',
+  skinDataUrl: null,
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -111,6 +114,7 @@ function merge(raw: unknown): Settings {
     memoryGb: Math.min(16, Math.max(2, Number(r.memoryGb) || d.memoryGb)),
     // versões antigas usavam 'auto' (detectar Java do sistema): migra para o Zulu incluso
     javaMode: r.javaMode === 'custom' ? 'custom' : 'bundled',
+    skinDataUrl: typeof r.skinDataUrl === 'string' && r.skinDataUrl.startsWith('data:image/png') ? r.skinDataUrl : null,
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }
