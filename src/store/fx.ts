@@ -7,6 +7,9 @@ import { create } from 'zustand'
 interface FxStore {
   playHover: boolean
   pulse: number
+  /** Abertura animada terminou (dispara as entradas da interface). */
+  introDone: boolean
+  setIntroDone(v: boolean): void
   setPlayHover(v: boolean): void
   firePulse(): void
 }
@@ -14,6 +17,8 @@ interface FxStore {
 export const useFx = create<FxStore>((set, get) => ({
   playHover: false,
   pulse: 0,
+  introDone: false,
+  setIntroDone: (introDone) => set({ introDone }),
   setPlayHover: (playHover) => set({ playHover }),
   firePulse: () => set({ pulse: get().pulse + 1 }),
 }))

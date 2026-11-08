@@ -76,6 +76,8 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
       : playHover ? 0.85
       : 0
     s.setEnergy(energy)
+    // ao abrir o jogo, a câmera mergulha no portal junto com o progresso
+    s.setDive(phase === 'launching' ? 0.2 + progress * 0.8 : 0)
   }, [phase, progress, playHover])
   useEffect(() => {
     if (pulse) sceneRef.current?.pulse()
@@ -91,9 +93,18 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
       if (frozen) {
         s.stop()
         s.renderAt(8, true)
-      } else if (document.hidden || gameRunning) s.stop()
-      else s.start()
+      } else if (document.hidden) s.stop()
+      else if (gameRunning) {
+        // deixa a câmera recuar do portal antes de pausar
+        s.start()
+        window.clearTimeout(pauseTimer)
+        pauseTimer = window.setTimeout(() => s.stop(), 3200)
+      } else {
+        window.clearTimeout(pauseTimer)
+        s.start()
+      }
     }
+    let pauseTimer: number | undefined
     apply()
     window.addEventListener('portal:ready', apply)
     document.addEventListener('visibilitychange', apply)
@@ -102,6 +113,7 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
       window.removeEventListener('portal:ready', apply)
       document.removeEventListener('visibilitychange', apply)
       reduced.removeEventListener('change', apply)
+      window.clearTimeout(pauseTimer)
     }
   }, [eco, gameRunning])
 

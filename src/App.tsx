@@ -8,6 +8,8 @@ import { Panel } from '@/components/layout/Panel'
 import { LogsModal } from '@/components/layout/LogsModal'
 import { Toaster } from '@/components/layout/Toaster'
 import { AudioUnlock } from '@/components/layout/AudioUnlock'
+import { Intro } from '@/components/layout/Intro'
+import { LaunchFlash } from '@/components/layout/LaunchFlash'
 import { ModpackPage } from '@/pages/ModpackPage'
 import { NewsPage } from '@/pages/NewsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -69,7 +71,7 @@ export default function App() {
             <motion.div key="shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="relative flex min-h-0 flex-1">
               <CommandColumn />
               <main className="relative min-w-0 flex-1">
-                <AnimatePresence initial={false}>
+                <AnimatePresence>
                   {panel ? (
                     <Panel key={route} label={panel.label}>
                       <panel.Page />
@@ -82,6 +84,8 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        <LaunchFlash />
+        {hydrated && <Intro />}
         <WindowControls />
         <LogsModal />
         <Toaster />

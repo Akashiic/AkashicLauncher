@@ -49,6 +49,12 @@ Janela fixa de **1000×620** (no navegador, o app aparece numa moldura do mesmo 
 - `src/components/layout/Panel.tsx`: Notícias, Modpack e Configurações abrem como painéis de vidro sobre a cena (Esc ou X fecham).
 - `src/components/layout/WindowControls.tsx`: faixa arrastável com minimizar/fechar.
 
+## Movimento (Fase 3)
+
+- **Abertura** (`Intro.tsx`, ~2,7s): logo, nome e a cena acendendo a partir do portal. Clique/tecla pula; sem abertura no Modo Economia ou com "reduzir movimento".
+- **JOGAR ↔ portal** (`store/fx.ts`): hover acende o portal, o clique pulsa, o progresso carrega a energia e, ao abrir o jogo, a câmera mergulha no portal (`setDive`), com clarão (`LaunchFlash.tsx`) e recuo antes de pausar.
+- Slogan revelado letra por letra; JOGAR magnético; Enter joga a partir do Início.
+
 ## Cena 3D: "O Portal Proibido"
 
 O fundo do launcher é uma cena WebGL em tempo real (Three.js), toda procedural:

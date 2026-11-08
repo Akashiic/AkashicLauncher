@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion'
 import { Play, Loader2, Lock } from 'lucide-react'
 import { useLaunch } from '@/store/launch'
 import { useServer } from '@/store/server'
@@ -47,6 +47,20 @@ export function CommandPlay() {
   const { playHover, setPlayHover, firePulse } = useFx()
   const elapsed = useElapsed(sessionStart, phase === 'running')
   const [shock, setShock] = useState(0)
+  // efeito magnético: o botão é levemente puxado em direção ao cursor
+  const mx = useMotionValue(0)
+  const my = useMotionValue(0)
+  const sx = useSpring(mx, { stiffness: 220, damping: 18 })
+  const sy = useSpring(my, { stiffness: 220, damping: 18 })
+  const magnet = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    mx.set(((e.clientX - r.left) / r.width - 0.5) * 12)
+    my.set(((e.clientY - r.top) / r.height - 0.5) * 8)
+  }
+  const unmagnet = () => {
+    mx.set(0)
+    my.set(0)
+  }
 
   const blocked = phase === 'ready' && server !== 'online'
   const ready = phase === 'ready' && !blocked
@@ -111,7 +125,7 @@ export function CommandPlay() {
 
   return (
     <div className="flex flex-col">
-      <div className={cn('relative rounded-xl', hot && 'play-hot')}>
+      <motion.div style={{ x: sx, y: sy }} onMouseMove={magnet} onMouseLeave={unmagnet} className={cn('relative rounded-xl', hot && 'play-hot')}>
         {/* brasas subindo (fora do botão para não serem cortadas) */}
         <div className="play-embers" aria-hidden>
           {EMBERS.map((e, i) => (
@@ -197,7 +211,7 @@ export function CommandPlay() {
 
         {/* energia girando pela borda */}
         {(ready || busy) && <span className={cn('energy-border', busy && 'energy-fast')} aria-hidden />}
-      </div>
+      </motion.div>
 
       {/* linha de contexto: status do servidor quando parado, progresso/sessão quando ativo */}
       <div className="mt-2 flex h-5 items-center justify-center gap-2 text-xs text-muted">

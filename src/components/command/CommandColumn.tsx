@@ -7,6 +7,7 @@ import { Logo } from '@/components/ui/Logo'
 import { CommandPlay } from './CommandPlay'
 import { UserBar } from './UserBar'
 import { cn, EASE } from '@/lib/cn'
+import { useFx } from '@/store/fx'
 
 const NAV: { id: Route; label: string; icon: LucideIcon; badge?: number }[] = [
   { id: 'home', label: 'Início', icon: Home },
@@ -69,11 +70,12 @@ function LatestNews() {
 
 /** Coluna de comando (formato B): marca, navegação, novidade, perfil, JOGAR e jogador. */
 export function CommandColumn() {
+  const introDone = useFx((s) => s.introDone)
   return (
     <motion.aside
-      initial={{ x: -24, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.7, ease: EASE }}
+      initial={{ x: -40, opacity: 0 }}
+      animate={introDone ? { x: 0, opacity: 1 } : { x: -40, opacity: 0 }}
+      transition={{ duration: 0.8, ease: EASE }}
       className="panel relative z-30 flex h-full w-[288px] shrink-0 flex-col border-y-0 border-l-0 !border-r-accent/40 px-[18px] pb-4 pt-[22px] shadow-[1px_0_24px_-8px_var(--accent)]"
     >
       <div className="drag flex items-center gap-3 px-1">

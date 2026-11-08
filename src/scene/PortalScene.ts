@@ -38,6 +38,10 @@ export class PortalScene {
   private energy = 0
   private energyTarget = 0
   private impulse = 0
+  private dive = 0
+  private diveTarget = 0
+  private lastFrameT = 0
+  private dt = 0
   private debrisMesh!: THREE.InstancedMesh
   private debris: Debris[] = []
 
@@ -355,25 +359,38 @@ export class PortalScene {
     this.debrisMesh.instanceMatrix.needsUpdate = true
   }
 
-  /** Enquadramento: o portal fica à direita, deixando a esquerda livre para o texto. */
+  /**
+   * Enquadramento: o portal fica à direita, deixando a esquerda livre.
+   * `dive` (0..1) leva a câmera para dentro do portal ao abrir o jogo.
+   */
   private updateCamera(t: number) {
     const aspect = this.width / this.height
-    const dist = 54
-    const halfW = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * dist * aspect
+    this.dive += (this.diveTarget - this.dive) * ease(this.dt, 2.4)
+    const d = this.dive * this.dive * (3 - 2 * this.dive) // suavização
+    const calm = 1 - d
+
+    const baseDist = 54
+    const dist = THREE.MathUtils.lerp(baseDist, 9, d)
+    const halfW = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * baseDist * aspect
     const shift = -halfW * (aspect > 1.3 ? 0.36 : 0.15)
 
-    this.mouseSmooth.lerp(this.mouse, 0.045)
-    const mx = this.mouseSmooth.x
-    const my = this.mouseSmooth.y
-    const orbit = Math.sin(t * 0.045) * 0.12 + mx * 0.05
+    this.mouseSmooth.lerp(this.mouse, ease(this.dt, 2.8))
+    const mx = this.mouseSmooth.x * calm
+    const my = this.mouseSmooth.y * calm
+    const orbit = (Math.sin(t * 0.045) * 0.12 + mx * 0.05) * calm
 
-    const target = new THREE.Vector3(shift, this.portalCenter.y - 4.4 + my * 0.2, 0)
+    const target = new THREE.Vector3(
+      THREE.MathUtils.lerp(shift, this.portalCenter.x, d),
+      THREE.MathUtils.lerp(this.portalCenter.y - 4.4, this.portalCenter.y, d) + my * 0.2,
+      0,
+    )
     this.camera.position.set(
-      target.x + Math.sin(orbit) * dist + Math.sin(t * 0.13) * 0.7 + mx * 1.4,
-      this.portalCenter.y + 1.5 + Math.cos(t * 0.17) * 0.45 - my * 1.1,
+      target.x + Math.sin(orbit) * dist + (Math.sin(t * 0.13) * 0.7 + mx * 1.4) * calm,
+      THREE.MathUtils.lerp(this.portalCenter.y + 1.5, this.portalCenter.y + 0.3, d) + (Math.cos(t * 0.17) * 0.45 - my * 1.1) * calm + Math.sin(t * 9) * 0.04 * d,
       Math.cos(orbit) * dist,
     )
     this.camera.lookAt(target)
+    this.bloom.strength = 0.95 + d * 0.9
 
     // luz que segue o cursor, projetada em um plano à frente da ilha
     this.raycaster.setFromCamera(this.mouseSmooth, this.camera)
@@ -381,11 +398,14 @@ export class PortalScene {
   }
 
   private frame(t: number) {
+    // suavizações em tempo real (independem da taxa de quadros)
+    this.dt = Math.min(0.1, Math.max(0, t - this.lastFrameT))
+    this.lastFrameT = t
     this.timeUniforms.forEach((u) => (u.value = t))
     const flicker = 0.85 + Math.sin(t * 2.3) * 0.08 + Math.sin(t * 7.1) * 0.04 + Math.sin(t * 13.7) * 0.03
     // energia vinda da interface (hover/progresso do JOGAR) + pulso do clique
-    this.energy += (this.energyTarget - this.energy) * 0.06
-    this.impulse *= 0.93
+    this.energy += (this.energyTarget - this.energy) * ease(this.dt, 3.7)
+    this.impulse *= Math.exp(-4.3 * this.dt)
     const e = this.energy + this.impulse
     this.portalLight.intensity = 220 * flicker * (1 + e * 1.3)
     this.portalUniforms.uIntensity.value = (0.92 + (flicker - 0.85) * 0.8) * (1 + e * 0.55)
@@ -416,6 +436,11 @@ export class PortalScene {
   /** Nível de energia do portal (0 = repouso, ~1 = carregado, >1 = máximo). */
   setEnergy(v: number) {
     this.energyTarget = Math.max(0, v)
+  }
+
+  /** Mergulho da câmera no portal (0 = enquadramento normal, 1 = dentro do portal). */
+  setDive(v: number) {
+    this.diveTarget = Math.min(1, Math.max(0, v))
   }
 
   /** Pulso curto de energia (clique no JOGAR). */
@@ -485,6 +510,11 @@ export class PortalScene {
     this.composer.dispose()
     this.renderer.dispose()
   }
+}
+
+/** Fator de suavização exponencial para um passo de tempo `dt` (s) e taxa `k` (1/s). */
+function ease(dt: number, k: number) {
+  return 1 - Math.exp(-k * dt)
 }
 
 export function webglAvailable() {
