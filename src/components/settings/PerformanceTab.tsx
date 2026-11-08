@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, AlertTriangle, XOctagon, Coffee, FolderSearch, Zap, Scale, Feather, Pencil, Search } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, XOctagon, Coffee, FolderSearch, Zap, Scale, Feather, Pencil, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { JVM_PRESETS, useSettings, type JvmPreset } from '@/store/settings'
+import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
+import { Switch } from '@/components/ui/Switch'
 import { Slider } from '@/components/ui/Slider'
-import { Segmented } from '@/components/ui/Segmented'
 import { Button } from '@/components/ui/Button'
 import { Section } from './SettingRow'
 import { toast } from '@/store/toasts'
@@ -22,18 +23,18 @@ function ramVerdict(gb: number) {
 export function PerformanceTab() {
   const s = useSettings((st) => st.settings)
   const update = useSettings((st) => st.update)
-  const [detecting, setDetecting] = useState(false)
+  const [checking, setChecking] = useState(false)
   const v = ramVerdict(s.memoryGb)
   const systemRam = 16
 
-  const detectJava = () => {
-    setDetecting(true)
+  // verificação do runtime incluso (simulada)
+  const checkRuntime = () => {
+    setChecking(true)
     window.setTimeout(() => {
-      setDetecting(false)
+      setChecking(false)
       audio.play('success')
-      update({ javaMode: 'auto' })
-      toast({ kind: 'success', title: 'Java 8 detectado', body: 'Java HotSpot 1.8.0_421 (64-bit) — compatível com Forge 1.7.10.' })
-    }, 1400)
+      toast({ kind: 'success', title: 'Java íntegro', body: `${javaLabel} · ${JAVA_RUNTIME.arch} — pronto para o Forge 1.7.10.` })
+    }, 1200)
   }
 
   return (
@@ -91,47 +92,65 @@ export function PerformanceTab() {
         </div>
       </Section>
 
-      <Section title="Java" desc="A 1.7.10 exige Java 8 (1.8.x). Versões mais novas não funcionam com Forge desta época.">
-        <Segmented
-          value={s.javaMode}
-          onChange={(javaMode) => update({ javaMode })}
-          options={[
-            { value: 'auto', label: 'Auto-detectar Java 8', icon: <Coffee size={14} /> },
-            { value: 'custom', label: 'Caminho personalizado', icon: <FolderSearch size={14} /> },
-          ]}
-        />
-        <AnimatePresence mode="wait" initial={false}>
-          {s.javaMode === 'auto' ? (
-            <motion.div key="auto" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-bg/70 px-4 py-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm text-fg">
-                    <CheckCircle2 size={14} className="text-success" /> Java HotSpot 1.8.0_421 · 64-bit
+      <Section title="Java" desc="O launcher traz o próprio Java 8, o mesmo para todos os jogadores. Você não precisa instalar nada.">
+        <div className="flex items-center gap-4 rounded-xl border border-success/30 bg-bg/70 px-4 py-3.5">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-accent bg-brand text-fg">
+            <Coffee size={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-fg">
+                {JAVA_RUNTIME.vendor} · {JAVA_RUNTIME.name}
+              </span>
+              <span className="rounded border border-line px-1.5 font-mono text-[11px] text-muted">{JAVA_RUNTIME.version}</span>
+              <span className="rounded border border-line px-1.5 text-[11px] text-muted">{JAVA_RUNTIME.arch}</span>
+              <span className={cn('flex items-center gap-1 text-xs', s.javaMode === 'bundled' ? 'text-success' : 'text-subtle')}>
+                <CheckCircle2 size={12} /> {s.javaMode === 'bundled' ? 'Em uso · incluso no launcher' : 'Incluso no launcher (não está em uso)'}
+              </span>
+            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-subtle" title={JAVA_RUNTIME.executable}>
+              {JAVA_RUNTIME.executable}
+            </div>
+          </div>
+          <Button size="sm" icon={<ShieldCheck size={13} className={cn(checking && 'animate-pulse')} />} onClick={checkRuntime} disabled={checking}>
+            {checking ? 'Verificando…' : 'Verificar'}
+          </Button>
+        </div>
+
+        <div className="mt-3 rounded-xl border border-line bg-bg/40">
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <div>
+              <div className="text-sm font-medium text-fg">Usar outro Java (avançado)</div>
+              <div className="text-xs text-muted">Só para quem sabe o que está fazendo. O Zulu incluso é o recomendado.</div>
+            </div>
+            <Switch checked={s.javaMode === 'custom'} label="Usar outro Java" onChange={(on) => update({ javaMode: on ? 'custom' : 'bundled' })} />
+          </div>
+          <AnimatePresence initial={false}>
+            {s.javaMode === 'custom' && (
+              <motion.div key="custom" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
+                <div className="border-t border-line px-4 pb-4 pt-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={s.javaPath}
+                      onChange={(e) => update({ javaPath: e.target.value })}
+                      placeholder="C:\Program Files\Java\jre1.8.0\bin\javaw.exe"
+                      spellCheck={false}
+                      aria-label="Caminho do Java"
+                      className="h-10 flex-1 rounded-xl border border-line bg-bg/70 px-3 font-mono text-xs text-fg placeholder:text-subtle focus:border-accent focus:outline-none"
+                    />
+                    <Button size="md" icon={<FolderSearch size={14} />} onClick={() => toast({ kind: 'info', title: 'Seletor de arquivo', body: 'Abriria o diálogo nativo (mock).' })}>
+                      Procurar
+                    </Button>
                   </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-subtle">C:\Program Files\Java\jre1.8.0_421\bin\javaw.exe</div>
+                  <div className="mt-2 flex items-start gap-2 text-xs text-warning">
+                    <AlertTriangle size={13} className="mt-px shrink-0" />
+                    <span>A 1.7.10 só roda em Java 8. Java 11, 17 ou mais novo faz o Forge crashar ao abrir. {!s.javaPath.trim() && 'Sem caminho, o launcher continua usando o Zulu incluso.'}</span>
+                  </div>
                 </div>
-                <Button size="sm" icon={<Search size={13} className={cn(detecting && 'animate-pulse')} />} onClick={detectJava} disabled={detecting}>
-                  {detecting ? 'Procurando…' : 'Detectar novamente'}
-                </Button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div key="custom" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
-              <div className="mt-4 flex gap-2">
-                <input
-                  value={s.javaPath}
-                  onChange={(e) => update({ javaPath: e.target.value })}
-                  placeholder="C:\Program Files\Java\jre1.8.0\bin\javaw.exe"
-                  spellCheck={false}
-                  className="h-10 flex-1 rounded-xl border border-line bg-bg/70 px-3 font-mono text-xs text-fg placeholder:text-subtle focus:border-accent focus:outline-none"
-                />
-                <Button size="md" icon={<FolderSearch size={14} />} onClick={() => toast({ kind: 'info', title: 'Seletor de arquivo', body: 'Abriria o diálogo nativo (mock).' })}>
-                  Procurar
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </Section>
 
       <Section title="Argumentos da JVM" desc="Escolha um preset pronto ou edite manualmente se souber o que está fazendo.">

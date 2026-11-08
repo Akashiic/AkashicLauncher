@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { bridge } from '@/lib/bridge'
 import { audio, type AudioSettings, type ChannelSettings } from '@/audio/AudioManager'
 
-export type JavaMode = 'auto' | 'custom'
+/** 'bundled' = Java 8 Zulu 8u512 incluso no launcher (padrão); 'custom' = caminho escolhido pelo jogador. */
+export type JavaMode = 'bundled' | 'custom'
 export type JvmPreset = 'default' | 'fps' | 'low' | 'custom'
 export type Resolution = '1080p' | '720p' | 'fullscreen' | 'borderless'
 export type LaunchBehavior = 'tray' | 'keep' | 'close'
@@ -65,7 +66,7 @@ const ch = (volume: number): ChannelSettings => ({ volume, muted: false })
 export const DEFAULT_SETTINGS: Settings = {
   version: 1,
   memoryGb: 6,
-  javaMode: 'auto',
+  javaMode: 'bundled',
   javaPath: '',
   jvmPreset: 'default',
   jvmArgs: JVM_PRESETS.default.args,
@@ -108,6 +109,8 @@ function merge(raw: unknown): Settings {
     ...r,
     version: 1,
     memoryGb: Math.min(16, Math.max(2, Number(r.memoryGb) || d.memoryGb)),
+    // versões antigas usavam 'auto' (detectar Java do sistema): migra para o Zulu incluso
+    javaMode: r.javaMode === 'custom' ? 'custom' : 'bundled',
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }

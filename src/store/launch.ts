@@ -3,6 +3,7 @@ import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
 import { useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
+import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
 
 /**
  * Simulador do ciclo de vida do jogo. Nenhum arquivo é baixado e nenhum
@@ -40,7 +41,7 @@ const MOD_FILES = [
 
 const BOOT_LOGS = [
   '[Client thread/INFO] [FML]: Forge Mod Loader version 7.99.40.1614 for Minecraft 1.7.10 loading',
-  '[Client thread/INFO] [FML]: Java is Java HotSpot(TM) 64-Bit Server VM, version 1.8.0_421',
+  `[Client thread/INFO] [FML]: Java is ${JAVA_RUNTIME.vmBanner}`,
   '[Client thread/INFO] [LaunchWrapper]: Loading tweak class name cpw.mods.fml.common.launcher.FMLTweaker',
   '[Client thread/INFO] [FML]: Searching ./mods for mods',
   '[Client thread/INFO] [FML]: Forge Mod Loader has identified 186 mods to load',
@@ -92,6 +93,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     const total = 1284
     set({ phase: 'verifying', progress: 0, filesDone: 0, filesTotal: total, speed: 0, currentFile: '', eta: 0 })
     log('[Launcher] Verificando integridade de 1284 arquivos (SHA-1)...')
+    log(`[Launcher] Runtime Java: ${javaLabel} (incluso no launcher)`)
     const start = performance.now()
     const dur = 2600 + Math.random() * 900
     clear()
@@ -144,7 +146,9 @@ export const useLaunch = create<LaunchStore>((set, get) => {
   const launch = () => {
     const { settings } = useSettings.getState()
     set({ phase: 'launching', progress: 0, currentFile: '' })
-    log(`[Launcher] java -Xms1G -Xmx${settings.memoryGb}G ${settings.jvmArgs.slice(0, 60)}... net.minecraft.launchwrapper.Launch`)
+    const java = settings.javaMode === 'custom' && settings.javaPath.trim() ? settings.javaPath.trim() : JAVA_RUNTIME.executable
+    log(`[Launcher] Java: ${settings.javaMode === 'custom' ? 'personalizado' : javaLabel}`)
+    log(`[Launcher] ${java} -Xms1G -Xmx${settings.memoryGb}G ${settings.jvmArgs.slice(0, 60)}... net.minecraft.launchwrapper.Launch`)
     let i = 0
     clear()
     timer = window.setInterval(() => {

@@ -82,8 +82,16 @@ Arquivos antigos ou corrompidos são mesclados com os padrões, sem quebrar o ap
 - **Status do servidor:** clique na pílula "Online" para alternar entre Online / Manutenção / Offline (bloqueia o botão JOGAR).
 - **Logs:** botão de terminal na Action Bar ou em Configurações → Jogo & Vídeo.
 
+## Java (Azul Zulu 8u512, incluso)
+
+O launcher usa o próprio Java: **Azul Zulu · Java 8 (1.8.0_512), 64-bit**. Tudo sobre o runtime fica em `src/lib/java.ts` (fonte única).
+
+- Padrão: `javaMode: 'bundled'`. Configurações antigas com `'auto'` migram automaticamente para o Zulu.
+- "Usar outro Java (avançado)" (`'custom'`) aceita um caminho próprio; sem caminho, o Zulu continua sendo usado.
+- **Para a implementação real:** empacotar o JRE do Zulu 8u512 de cada sistema em `runtime/zulu-8u512/` (via `extraResources` do electron-builder) ou baixá-lo do site da Azul no primeiro uso, sempre conferindo o checksum (SHA-256) antes de extrair. No Windows, usar `bin/javaw.exe` (sem console); no Linux/macOS, `bin/java`.
+
 ## Onde plugar a lógica real
 
-- `src/store/launch.ts` → troque `verify` / `download` / `launch` por chamadas IPC reais.
+- `src/store/launch.ts` → troque `verify` / `download` / `launch` por chamadas IPC reais (o executável Java vem de `src/lib/java.ts`).
 - `src/store/server.ts` → troque `tick()` por um Server List Ping de verdade.
 - `src/lib/content.ts` → notícias e changelog vindos da sua API.
