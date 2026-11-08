@@ -4,7 +4,6 @@ import { useUi, type Route } from '@/store/ui'
 import { NEWS } from '@/lib/content'
 import { audio } from '@/audio/AudioManager'
 import { Logo } from '@/components/ui/Logo'
-import { ProfileServer } from './ProfileServer'
 import { CommandPlay } from './CommandPlay'
 import { UserBar } from './UserBar'
 import { cn, EASE } from '@/lib/cn'
@@ -92,10 +91,7 @@ export function CommandColumn() {
 
       <div className="flex-1" />
 
-      <div className="flex flex-col gap-2.5">
-        <ProfileServer />
-        <CommandPlay />
-      </div>
+      <CommandPlay />
       <UserBar />
     </motion.aside>
   )

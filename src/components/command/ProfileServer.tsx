@@ -14,21 +14,16 @@ const STATE = {
   offline: { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text' },
 } as const
 
-/** Perfil + status do servidor em um único bloco. Mantém o mock do servidor rodando. */
+/** Perfil + status do servidor: chip de vidro flutuando na área aberta da cena. */
 export function ProfileServer() {
   const [open, setOpen] = useState(false)
   const profileId = useSettings((s) => s.settings.profileId)
   const update = useSettings((s) => s.update)
   const busy = useLaunch((s) => s.phase !== 'ready')
-  const { state, players, maxPlayers, tick, cycleState } = useServer()
+  const { state, players, maxPlayers, cycleState } = useServer()
   const ref = useRef<HTMLDivElement>(null)
   const current = PROFILES.find((p) => p.id === profileId) ?? PROFILES[0]
   const s = STATE[state]
-
-  useEffect(() => {
-    const id = window.setInterval(tick, 2800)
-    return () => window.clearInterval(id)
-  }, [tick])
 
   useEffect(() => {
     if (!open) return
@@ -44,7 +39,7 @@ export function ProfileServer() {
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-overlay/[0.03] transition-colors hover:border-line-strong">
+      <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface/80 shadow-popover backdrop-blur-xl transition-colors hover:border-line-strong [html.eco_&]:bg-surface">
         <button
           disabled={busy}
           aria-haspopup="listbox"
@@ -54,7 +49,7 @@ export function ProfileServer() {
             audio.play(open ? 'close' : 'click')
             setOpen((v) => !v)
           }}
-          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-overlay/[0.04] disabled:opacity-50"
+          className="flex min-w-0 items-center gap-3 py-2 pl-3.5 pr-3 text-left transition-colors hover:bg-overlay/[0.04] disabled:opacity-50"
         >
           <span className="min-w-0 flex-1">
             <span className="label block !text-[11px]">Perfil</span>
@@ -64,7 +59,7 @@ export function ProfileServer() {
             <ChevronDown size={14} />
           </motion.span>
         </button>
-        <Tooltip content="Simular outro estado do servidor (mock)" side="top">
+        <Tooltip content="Simular outro estado do servidor (mock)" side="bottom">
           <button
             aria-label={`Servidor ${s.label}, ${players} de ${maxPlayers} jogadores`}
             onMouseEnter={() => audio.play('hover')}
@@ -87,11 +82,11 @@ export function ProfileServer() {
         {open && (
           <motion.ul
             role="listbox"
-            initial={{ opacity: 0, y: 8, scale: 0.98, filter: 'blur(6px)' }}
+            initial={{ opacity: 0, y: -8, scale: 0.98, filter: 'blur(6px)' }}
             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+            exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
             transition={{ duration: 0.28, ease: EASE }}
-            className="panel-raised absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 origin-bottom rounded-2xl p-1.5"
+            className="panel-raised absolute left-0 top-[calc(100%+8px)] z-50 w-72 origin-top rounded-2xl p-1.5"
           >
             {PROFILES.map((p) => {
               const active = p.id === profileId

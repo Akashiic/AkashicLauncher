@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Background } from '@/components/fx/Background'
 import { CommandColumn } from '@/components/command/CommandColumn'
+import { ProfileServer } from '@/components/command/ProfileServer'
 import { WindowControls } from '@/components/layout/WindowControls'
 import { HomeHero } from '@/components/layout/HomeHero'
 import { Panel } from '@/components/layout/Panel'
@@ -13,6 +14,7 @@ import { NewsPage } from '@/pages/NewsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { useUi } from '@/store/ui'
 import { useSettings } from '@/store/settings'
+import { useServer } from '@/store/server'
 import { audio } from '@/audio/AudioManager'
 import { bridge } from '@/lib/bridge'
 import { Logo } from '@/components/ui/Logo'
@@ -33,6 +35,13 @@ export default function App() {
   const hydrated = useSettings((s) => s.hydrated)
   const hydrate = useSettings((s) => s.hydrate)
   const panel = route === 'home' ? null : PANELS[route]
+  const tickServer = useServer((s) => s.tick)
+
+  // mock do status do servidor (substituir por um ping real depois)
+  useEffect(() => {
+    const id = window.setInterval(tickServer, 2800)
+    return () => window.clearInterval(id)
+  }, [tickServer])
 
   useEffect(() => {
     void hydrate().then(() => {
@@ -68,6 +77,18 @@ export default function App() {
                     </Panel>
                   ) : (
                     <HomeHero key="home" />
+                  )}
+                  {!panel && (
+                    <motion.div
+                      key="profile"
+                      initial={{ opacity: 0, y: -10, filter: 'blur(8px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, y: -8, filter: 'blur(6px)', transition: { duration: 0.2 } }}
+                      transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
+                      className="no-drag absolute left-6 top-4 z-50"
+                    >
+                      <ProfileServer />
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </main>
