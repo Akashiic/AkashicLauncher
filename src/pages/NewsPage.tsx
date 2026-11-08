@@ -23,11 +23,11 @@ export function NewsPage() {
   const list = NEWS.filter((n) => filter === 'all' || n.tag === filter)
 
   return (
-    <div className="h-full overflow-y-auto px-8 py-8">
+    <div className="h-full overflow-y-auto px-7 py-6">
       <div className="mx-auto max-w-4xl">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col items-start gap-4 pr-12">
           <div>
-            <h1 className="font-display text-[48px] text-fg">Changelog & Notícias</h1>
+            <h1 className="font-display text-[40px] text-fg">Notícias</h1>
             <p className="mt-1 text-sm text-muted">Tudo o que mudou no servidor, em ordem cronológica.</p>
           </div>
           <Segmented<Filter>
@@ -43,7 +43,7 @@ export function NewsPage() {
           />
         </div>
 
-        <div className="relative mt-8 pl-8">
+        <div className="relative mt-6 pl-8">
           <div className="absolute bottom-2 left-[11px] top-2 w-px bg-line" />
           <AnimatePresence mode="popLayout">
             {list.map((n, i) => {

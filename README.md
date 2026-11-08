@@ -40,6 +40,15 @@ Todas as cores, fontes, raios e sombras ficam em **um único arquivo: `src/theme
 - Logo: coloque `public/brand/logo.png` (veja `public/brand/README.md`).
 - Única exceção: `backgroundColor` em `electron/main.cjs` (cor da janela antes do React carregar) espelha `--bg-base`.
 
+## Layout: "B · Coluna de Comando"
+
+Janela fixa de **1000×620** (no navegador, o app aparece numa moldura do mesmo tamanho).
+
+- `src/components/command/`: a coluna à esquerda (marca, menu, card da novidade, perfil + servidor, JOGAR com progresso dentro do botão e barra do jogador com volume/música e configurações).
+- `src/components/layout/HomeHero.tsx`: slogan sobre a cena.
+- `src/components/layout/Panel.tsx`: Notícias, Modpack e Configurações abrem como painéis de vidro sobre a cena (Esc ou X fecham).
+- `src/components/layout/WindowControls.tsx`: faixa arrastável com minimizar/fechar.
+
 ## Cena 3D: "O Portal Proibido"
 
 O fundo do launcher é uma cena WebGL em tempo real (Three.js), toda procedural:

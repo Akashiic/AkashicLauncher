@@ -12,10 +12,14 @@ let win = null
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280,
-    height: 780,
-    minWidth: 1024,
-    minHeight: 640,
+    // Formato "B · Coluna de Comando": janela fixa 1000×620
+    width: 1000,
+    height: 620,
+    useContentSize: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    roundedCorners: true,
     frame: false,
     transparent: false,
     backgroundColor: '#0D0D0D', // pré-pintura da janela: espelha --bg-base de src/theme/tokens.css

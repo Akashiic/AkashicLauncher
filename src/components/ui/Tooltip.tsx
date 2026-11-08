@@ -17,7 +17,7 @@ const from: Record<Side, { x?: number; y?: number }> = {
   bottom: { y: -4 },
 }
 
-export function Tooltip({ content, side = 'top', children, className }: { content: React.ReactNode; side?: Side; children: React.ReactNode; className?: string }) {
+export function Tooltip({ content, side = 'top', children, className, disabled }: { content: React.ReactNode; side?: Side; children: React.ReactNode; className?: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false)
   return (
     <span
@@ -29,7 +29,7 @@ export function Tooltip({ content, side = 'top', children, className }: { conten
     >
       {children}
       <AnimatePresence>
-        {open && (
+        {open && !disabled && (
           <motion.span
             role="tooltip"
             initial={{ opacity: 0, scale: 0.92, filter: 'blur(4px)', ...from[side] }}

@@ -353,16 +353,16 @@ export class PortalScene {
   /** Enquadramento: o portal fica à direita, deixando a esquerda livre para o texto. */
   private updateCamera(t: number) {
     const aspect = this.width / this.height
-    const dist = 46
+    const dist = 54
     const halfW = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * dist * aspect
-    const shift = -halfW * (aspect > 1.3 ? 0.5 : 0.15)
+    const shift = -halfW * (aspect > 1.3 ? 0.36 : 0.15)
 
     this.mouseSmooth.lerp(this.mouse, 0.045)
     const mx = this.mouseSmooth.x
     const my = this.mouseSmooth.y
     const orbit = Math.sin(t * 0.045) * 0.12 + mx * 0.05
 
-    const target = new THREE.Vector3(shift, this.portalCenter.y - 3.2 + my * 0.2, 0)
+    const target = new THREE.Vector3(shift, this.portalCenter.y - 4.4 + my * 0.2, 0)
     this.camera.position.set(
       target.x + Math.sin(orbit) * dist + Math.sin(t * 0.13) * 0.7 + mx * 1.4,
       this.portalCenter.y + 1.5 + Math.cos(t * 0.17) * 0.45 - my * 1.1,

@@ -22,13 +22,13 @@ export function ModpackPage() {
   ]
 
   return (
-    <div className="h-full overflow-y-auto px-8 py-8">
-      <h1 className="font-display text-[48px] text-fg">Modpack & Opcionais</h1>
+    <div className="h-full overflow-y-auto px-7 py-6">
+      <h1 className="pr-12 font-display text-[40px] text-fg">Modpack</h1>
       <p className="mt-1 text-sm text-muted">
         <Versioned text="Akashic Survival 3.4 · Minecraft 1.7.10" />
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-5 grid grid-cols-4 gap-3">
         {stats.map((s, i) => (
           <GlowCard key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, ease: EASE, duration: 0.6 }} className="p-4">
             <s.icon size={16} className="relative z-[3] text-accent-strong" />
@@ -38,7 +38,7 @@ export function ModpackPage() {
         ))}
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_1fr]">
+      <div className="mt-6 flex flex-col gap-6">
         <section>
           <h2 className="label mb-3">Mods opcionais (client-side)</h2>
           <OptionalModsList />

@@ -31,7 +31,7 @@ export function Background() {
   }, [webgl])
 
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden bg-bg">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden bg-bg">
       {webgl ? (
         <PortalCanvas onUnavailable={fallback} />
       ) : (

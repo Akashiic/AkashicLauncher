@@ -1,28 +1,38 @@
 import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Background } from '@/components/fx/Background'
-import { TitleBar } from '@/components/layout/TitleBar'
-import { Sidebar } from '@/components/layout/Sidebar'
+import { CommandColumn } from '@/components/command/CommandColumn'
+import { WindowControls } from '@/components/layout/WindowControls'
+import { HomeHero } from '@/components/layout/HomeHero'
+import { Panel } from '@/components/layout/Panel'
 import { LogsModal } from '@/components/layout/LogsModal'
 import { Toaster } from '@/components/layout/Toaster'
 import { AudioUnlock } from '@/components/layout/AudioUnlock'
-import { HomePage } from '@/pages/HomePage'
 import { ModpackPage } from '@/pages/ModpackPage'
 import { NewsPage } from '@/pages/NewsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { useUi } from '@/store/ui'
 import { useSettings } from '@/store/settings'
 import { audio } from '@/audio/AudioManager'
+import { bridge } from '@/lib/bridge'
 import { Logo } from '@/components/ui/Logo'
-import { EASE } from '@/lib/cn'
+import { cn, EASE } from '@/lib/cn'
 
-const PAGES = { home: HomePage, modpack: ModpackPage, news: NewsPage, settings: SettingsPage }
+const PANELS = {
+  news: { label: 'Notícias', Page: NewsPage },
+  modpack: { label: 'Modpack', Page: ModpackPage },
+  settings: { label: 'Configurações', Page: SettingsPage },
+} as const
 
+/**
+ * Formato "B · Coluna de Comando" em janela fixa 1000×620.
+ * No navegador, o app aparece numa moldura do mesmo tamanho, como a janela real.
+ */
 export default function App() {
   const route = useUi((s) => s.route)
   const hydrated = useSettings((s) => s.hydrated)
   const hydrate = useSettings((s) => s.hydrate)
-  const Page = PAGES[route]
+  const panel = route === 'home' ? null : PANELS[route]
 
   useEffect(() => {
     void hydrate().then(() => {
@@ -33,37 +43,42 @@ export default function App() {
   }, [hydrate])
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden">
-      <Background />
-      <TitleBar />
-      <AnimatePresence mode="wait">
-        {!hydrated ? (
-          <motion.div key="boot" exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.6, ease: EASE }} className="relative flex flex-1 items-center justify-center">
-            <Logo size={72} />
-          </motion.div>
-        ) : (
-          <motion.div key="shell" initial={{ opacity: 0, scale: 0.985, filter: 'blur(10px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={{ duration: 0.8, ease: EASE }} className="relative flex min-h-0 flex-1">
-            <Sidebar />
-            <main className="relative min-w-0 flex-1">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={route}
-                  initial={{ opacity: 0, scale: 0.985, filter: 'blur(8px)' }}
-                  animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, scale: 1.01, filter: 'blur(6px)' }}
-                  transition={{ duration: 0.38, ease: EASE }}
-                  className="absolute inset-0"
-                >
-                  <Page />
-                </motion.div>
-              </AnimatePresence>
-            </main>
-          </motion.div>
+    <div className={cn('flex h-full w-full items-center justify-center', !bridge.isElectron && 'bg-shade')}>
+      {/* translateZ(0): elementos "fixed" (modais, toasts) ficam presos à janela */}
+      <div
+        className={cn(
+          'relative flex overflow-hidden bg-bg [transform:translateZ(0)]',
+          bridge.isElectron ? 'h-full w-full' : 'h-[620px] w-[1000px] rounded-2xl border border-line shadow-popover',
         )}
-      </AnimatePresence>
-      <LogsModal />
-      <Toaster />
-      <AudioUnlock />
+      >
+        <Background />
+        <AnimatePresence mode="wait">
+          {!hydrated ? (
+            <motion.div key="boot" exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.6, ease: EASE }} className="relative flex flex-1 items-center justify-center">
+              <Logo size={72} />
+            </motion.div>
+          ) : (
+            <motion.div key="shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="relative flex min-h-0 flex-1">
+              <CommandColumn />
+              <main className="relative min-w-0 flex-1">
+                <AnimatePresence initial={false}>
+                  {panel ? (
+                    <Panel key={route} label={panel.label}>
+                      <panel.Page />
+                    </Panel>
+                  ) : (
+                    <HomeHero key="home" />
+                  )}
+                </AnimatePresence>
+              </main>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <WindowControls />
+        <LogsModal />
+        <Toaster />
+        <AudioUnlock />
+      </div>
     </div>
   )
 }
