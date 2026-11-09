@@ -143,6 +143,8 @@ export async function fetchModpackReleases(signal?: AbortSignal): Promise<FetchR
   try {
     const res = await fetch(RELEASES_URL, {
       signal,
+      // o cache HTTP do WebView poderia esconder uma versão nova: quem decide é o ETag abaixo
+      cache: 'no-store',
       headers: {
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
@@ -164,4 +166,22 @@ export async function fetchModpackReleases(signal?: AbortSignal): Promise<FetchR
   }
 }
 
-export const formatMB = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(bytes > 1024 ** 3 ? 0 : 1)} MB`
+export const formatMB = (bytes: number) =>
+  bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(bytes > 1024 ** 3 ? 0 : 1)} MB`
+
+/** Dados do release que o núcleo em Rust precisa para instalar/atualizar. */
+export function packRef(r: ModpackRelease | null | undefined) {
+  if (!r?.asset) return null
+  return { tag: r.tag, url: r.asset.url, size: r.asset.size, ...(r.asset.sha256 ? { sha256: r.asset.sha256 } : {}) }
+}
+
+/** "2 arquivos novos, 3 atualizados, 1 removido" a partir de um resumo de atualização. */
+export function describeUpdate(s: { added: number; changed: number; removed: number; repaired: number }) {
+  const parts: string[] = []
+  const n = (v: number, one: string, many: string) => `${v} ${v === 1 ? one : many}`
+  if (s.added) parts.push(n(s.added, 'arquivo novo', 'arquivos novos'))
+  if (s.changed) parts.push(n(s.changed, 'atualizado', 'atualizados'))
+  if (s.removed) parts.push(n(s.removed, 'removido', 'removidos'))
+  if (s.repaired) parts.push(n(s.repaired, 'restaurado', 'restaurados'))
+  return parts.join(', ')
+}

@@ -179,7 +179,8 @@ pub fn run() {
             game::game_cancel,
             game::game_stop,
             game::game_installed,
-            game::game_verify
+            game::game_verify,
+            game::game_update_plan
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o launcher");

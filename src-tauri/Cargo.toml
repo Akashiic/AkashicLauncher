@@ -30,6 +30,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 flate2 = "1"
 tar = "0.4"
 rand = "0.8"
+crc32fast = "1"
 
 # binário pequeno e rápido de carregar
 [profile.release]

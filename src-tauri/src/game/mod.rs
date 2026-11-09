@@ -11,6 +11,7 @@ pub mod minecraft;
 pub mod modpack;
 pub mod net;
 pub mod progress;
+pub mod zipremote;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -131,26 +132,70 @@ async fn play(app: &AppHandle, state: &GameState, req: PlayRequest, prog: Arc<Pr
     let n = net.ensure_all(vanilla.jobs.clone(), &prog, false, 16).await?;
     log(app, if n > 0 { format!("Minecraft 1.7.10: {n} arquivos baixados.") } else { "Minecraft 1.7.10 verificado.".into() });
 
-    // 3) Modpack
-    let current = modpack::installed(&p.instance);
+    // 3) Modpack: instala na 1ª vez, atualiza só o que mudou, repara o que sumiu
     let mut phase = "verifying";
-    let installed_tag = current.as_ref().map(|c| c.tag.as_str());
     match &req.pack {
-        Some(pack) if installed_tag != Some(pack.tag.as_str()) => {
-            phase = "downloading";
-            prog.stage(phase, &format!("Modpack {}", pack.tag));
-            log(app, match installed_tag {
-                Some(old) => format!("Atualizando o modpack: {old} → {}", pack.tag),
-                None => format!("Instalando o modpack {}", pack.tag),
-            });
-            modpack::install(&net, &prog, &p.instance, &p.cache, pack).await?;
-            let _ = app.emit("launch:pack-installed", &pack.tag);
-            log(app, format!("Modpack {} instalado.", pack.tag));
+        Some(pack) => {
+            prog.stage("verifying", &format!("Modpack {}", pack.tag));
+            let result: Result<()> = async {
+                let plan = modpack::plan(&net, &p.instance, pack, false).await?;
+                match plan.mode {
+                    modpack::Mode::None => log(app, format!("Modpack {} em dia.", pack.tag)),
+                    modpack::Mode::Full => {
+                        prog.stage("downloading", &format!("Baixando {}", pack.tag));
+                        log(app, match &plan.summary.from {
+                            Some(old) => format!("Atualizando o modpack: {old} → {} (download completo)", pack.tag),
+                            None => format!("Instalando o modpack {} (versão mais nova)", pack.tag),
+                        });
+                    }
+                    modpack::Mode::Delta => {
+                        let s = &plan.summary;
+                        log(app, format!(
+                            "Atualizando o modpack: {} → {} · {} novo(s), {} alterado(s), {} removido(s) · {:.1} MB",
+                            s.from.as_deref().unwrap_or("?"), pack.tag, s.added, s.changed, s.removed, s.download_bytes as f64 / 1048576.0
+                        ));
+                    }
+                    modpack::Mode::Repair => log(app, format!("Restaurando {} arquivo(s) do modpack que estavam faltando ou corrompidos.", plan.summary.repaired)),
+                }
+                if plan.mode != modpack::Mode::None {
+                    phase = "downloading";
+                }
+                let summary = modpack::apply(&net, &prog, &p.instance, &p.cache, pack, plan).await?;
+                if summary.mode != modpack::Mode::None {
+                    log(app, format!("Modpack {} pronto.", pack.tag));
+                    let _ = app.emit("launch:pack-updated", &summary);
+                }
+                let _ = app.emit("launch:pack-installed", &pack.tag);
+                Ok(())
+            }
+            .await;
+            if let Err(e) = result {
+                // queda de rede com uma versão já instalada: avisa e joga com ela
+                let offline = !net::is_cancelled(&e) && e.chain().any(|c| c.is::<reqwest::Error>());
+                match modpack::installed(&p.instance).filter(|_| offline) {
+                    Some(state) => {
+                        log(app, format!("Não foi possível atualizar agora ({e:#}). Jogando com {}.", state.tag));
+                        let _ = app.emit("launch:notice", serde_json::json!({
+                            "kind": "warning",
+                            "title": "Atualização adiada",
+                            "body": format!("Sem conexão estável com o GitHub. Abrindo com {}; a atualização tenta de novo no próximo JOGAR.", state.tag),
+                        }));
+                        let _ = app.emit("launch:pack-installed", &state.tag);
+                    }
+                    None => return Err(e),
+                }
+            }
         }
-        _ => match installed_tag {
-            Some(tag) => {
-                log(app, format!("Modpack {tag} já instalado."));
-                let _ = app.emit("launch:pack-installed", tag);
+        None => match modpack::installed(&p.instance) {
+            // sem conexão com o GitHub: joga com o que está instalado
+            Some(state) => {
+                modpack::recover(&p.instance);
+                let broken = modpack::damaged(&p.instance, &state, false);
+                if !broken.is_empty() {
+                    log(app, format!("Atenção: {} arquivo(s) do modpack faltando; conecte-se para restaurar.", broken.len()));
+                }
+                log(app, format!("Sem conexão com o GitHub: usando o modpack instalado ({}).", state.tag));
+                let _ = app.emit("launch:pack-installed", &state.tag);
             }
             None => bail!("o modpack ainda não foi instalado e não deu para consultar as versões no GitHub; verifique sua conexão"),
         },
@@ -211,6 +256,15 @@ pub fn game_installed(app: AppHandle) -> Option<String> {
     modpack::installed(&p.instance).map(|i| i.tag)
 }
 
+/// Calcula o que uma atualização vai baixar (só lê o índice do .zip remoto).
+/// A interface mostra o tamanho exato antes do jogador clicar em ATUALIZAR.
+#[tauri::command]
+pub async fn game_update_plan(app: AppHandle, pack: modpack::PackInfo) -> Result<modpack::Summary, String> {
+    let p = paths(&app).map_err(|e| e.to_string())?;
+    let net = Net::new(Arc::new(AtomicBool::new(false))).map_err(|e| e.to_string())?;
+    modpack::plan(&net, &p.instance, &pack, false).await.map(|plan| plan.summary).map_err(|e| format!("{e:#}"))
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VerifyResult {
@@ -220,7 +274,7 @@ pub struct VerifyResult {
 
 /// Confere o SHA-1 de todos os arquivos do Minecraft e do Forge e baixa de novo os corrompidos.
 #[tauri::command]
-pub async fn game_verify(app: AppHandle, state: State<'_, GameState>) -> Result<VerifyResult, String> {
+pub async fn game_verify(app: AppHandle, state: State<'_, GameState>, pack: Option<modpack::PackInfo>) -> Result<VerifyResult, String> {
     let _busy = begin(&state)?;
     let progress = Arc::new(Progress::default());
     let _ticker = Ticker::start(app.clone(), progress.clone());
@@ -232,8 +286,20 @@ pub async fn game_verify(app: AppHandle, state: State<'_, GameState>) -> Result<
         let mut jobs = vanilla.jobs;
         let forge = forge::plan(&net, &progress, &p.mc, &p.instance).await?;
         jobs.extend(forge.jobs);
-        let checked = jobs.len();
-        let repaired = net.ensure_all(jobs, &progress, true, 8).await?;
+        let mut checked = jobs.len();
+        let mut repaired = net.ensure_all(jobs, &progress, true, 8).await?;
+        // arquivos do modpack: CRC-32 de cada um (exceto configs, que o jogador pode editar)
+        if let (Some(pack), Some(installed)) = (&pack, modpack::installed(&p.instance)) {
+            if installed.tag == pack.tag {
+                progress.stage("verifying", &format!("Modpack {}", pack.tag));
+                checked += installed.entries.len();
+                let plan = modpack::plan(&net, &p.instance, pack, true).await?;
+                if plan.mode == modpack::Mode::Repair {
+                    repaired += plan.summary.repaired;
+                    modpack::apply(&net, &progress, &p.instance, &p.cache, pack, plan).await?;
+                }
+            }
+        }
         log(&app, format!("Integridade: {checked} arquivos conferidos, {repaired} corrigidos."));
         Ok(VerifyResult { checked, repaired })
     }

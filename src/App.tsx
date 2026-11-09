@@ -79,6 +79,12 @@ export default function App() {
     })
   }, [hydrated])
 
+  // versão instalada mudou: recalcula o que a próxima atualização vai baixar
+  const installedVersion = useSettings((s) => s.settings.modpackVersion)
+  useEffect(() => {
+    if (hydrated) void useModpack.getState().refreshPlan()
+  }, [hydrated, installedVersion])
+
   // "Fechar o jogo" no menu da bandeja
   useEffect(() => bridge.window.onTrayStopGame(() => useLaunch.getState().stop()), [])
 

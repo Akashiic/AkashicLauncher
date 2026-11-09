@@ -50,19 +50,37 @@ export interface NativeProgress {
   current: string
 }
 
+/** Plano/resumo de atualização do modpack calculado pelo Rust. */
+export interface UpdateSummary {
+  mode: 'none' | 'full' | 'delta' | 'repair'
+  from: string | null
+  to: string
+  downloadBytes: number
+  added: number
+  changed: number
+  removed: number
+  repaired: number
+}
+
+export type PackRef = NonNullable<PlayRequest['pack']>
+
 export interface GameEvents {
   'launch:progress': NativeProgress
   'launch:logs': string[]
   'launch:pack-installed': string
   'game:window': null
   'game:exit': { code: number | null; crashReport: string | null }
+  'launch:pack-updated': UpdateSummary
+  'launch:notice': { kind: 'info' | 'warning' | 'error' | 'success'; title: string; body?: string }
 }
 
 export interface GameApi {
   play(req: PlayRequest): Promise<void>
   cancel(): Promise<void>
   stop(): Promise<boolean>
-  verify(): Promise<{ checked: number; repaired: number }>
+  verify(pack: PackRef | null): Promise<{ checked: number; repaired: number }>
+  /** O que uma atualização vai baixar (lê só o índice do .zip remoto). */
+  plan(pack: PackRef): Promise<UpdateSummary>
   installed(): Promise<string | null>
   on<K extends keyof GameEvents>(event: K, cb: (payload: GameEvents[K]) => void): () => void
 }
@@ -144,7 +162,8 @@ function tauriBridge(): AkashicBridge {
       play: (req) => invoke<void>('game_play', { req }),
       cancel: () => invoke<void>('game_cancel'),
       stop: () => invoke<boolean>('game_stop'),
-      verify: () => invoke('game_verify'),
+      verify: (pack) => invoke('game_verify', { pack }),
+      plan: (pack) => invoke<UpdateSummary>('game_update_plan', { pack }),
       installed: () => invoke<string | null>('game_installed'),
       on: (event, cb) => {
         const off = listen(event, (e) => cb(e.payload as never))

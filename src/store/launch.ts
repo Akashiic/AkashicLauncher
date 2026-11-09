@@ -4,7 +4,7 @@ import { toast } from '@/store/toasts'
 import { activeAccount, useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
-import { formatMB, parseTag, type ModpackRelease } from '@/lib/modpack'
+import { describeUpdate, formatMB, packRef, parseTag, type ModpackRelease } from '@/lib/modpack'
 import { normalizeFlags } from '@/lib/jvm'
 import { modpackState, useModpack } from '@/store/modpack'
 
@@ -242,7 +242,20 @@ export const useLaunch = create<LaunchStore>((set, get) => {
       game.on('launch:pack-installed', (tag) => {
         const v = parseTag(tag)?.version
         if (v && useSettings.getState().settings.modpackVersion !== v) useSettings.getState().update({ modpackVersion: v })
+        void useModpack.getState().refreshPlan()
       }),
+      game.on('launch:pack-updated', (s) => {
+        const what = describeUpdate(s)
+        if (s.mode === 'repair') toast({ kind: 'info', title: 'Modpack restaurado', body: `${what}. Tudo certo para jogar.` })
+        else if (s.mode === 'full' && !s.from) toast({ kind: 'success', title: `${s.to} instalado`, body: 'Versão mais nova do modpack, pronta para jogar.' })
+        else
+          toast({
+            kind: 'success',
+            title: `Atualizado para ${s.to}`,
+            body: s.mode === 'delta' ? `${what || 'Ajustes'} · ${formatMB(s.downloadBytes)} baixados (só o que mudou).` : `${s.from} → ${s.to} (download completo).`,
+          })
+      }),
+      game.on('launch:notice', (n) => toast({ kind: n.kind, title: n.title, body: n.body }, 8000)),
       game.on('game:window', () => {
         if (get().phase === 'launching') running()
       }),
@@ -289,7 +302,8 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     if (mp.status !== 'ready') await mp.check()
     const { latest, fromCache } = useModpack.getState()
     if (fromCache) log('[Launcher] Sem conexão com o GitHub — usando a última lista de versões salva.')
-    const pack = latest?.asset ? { tag: latest.tag, url: latest.asset.url, size: latest.asset.size, ...(latest.asset.sha256 ? { sha256: latest.asset.sha256 } : {}) } : null
+    // sempre a versão mais nova: instala na 1ª vez, atualiza ou repara antes de abrir
+    const pack = packRef(latest)
     if (latest && !latest.asset) log(`[Launcher] O release ${latest.tag} não tem .zip anexado.`)
     const { settings } = useSettings.getState()
     const custom = settings.javaMode === 'custom' && settings.javaPath.trim() ? settings.javaPath.trim() : null
@@ -370,8 +384,11 @@ export const useLaunch = create<LaunchStore>((set, get) => {
       if (bridge.game) {
         listenNative()
         set({ phase: 'verifying', stage: 'Conferindo arquivos', progress: 0, filesDone: 0, filesTotal: 0, bytesDone: 0, bytesTotal: 0 })
+        // o release da versão instalada (para conferir e reparar os arquivos do pack)
+        const installed = useSettings.getState().settings.modpackVersion
+        const rel = useModpack.getState().releases.find((r) => r.version === installed)
         bridge.game
-          .verify()
+          .verify(packRef(rel))
           .then(({ checked, repaired }) => {
             audio.play('success')
             toast({ kind: 'success', title: 'Arquivos conferidos', body: repaired ? `${checked} arquivos conferidos; ${repaired === 1 ? '1 foi baixado' : `${repaired} foram baixados`} de novo.` : `${checked} arquivos conferidos, nenhum corrompido.` })

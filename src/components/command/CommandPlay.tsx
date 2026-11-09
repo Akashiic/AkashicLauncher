@@ -5,7 +5,7 @@ import { useLaunch } from '@/store/launch'
 import { useServer } from '@/store/server'
 import { useUi } from '@/store/ui'
 import { useFx } from '@/store/fx'
-import { useModpackState } from '@/store/modpack'
+import { useModpack, useModpackState } from '@/store/modpack'
 import { useSettings } from '@/store/settings'
 import { formatMB } from '@/lib/modpack'
 import { audio } from '@/audio/AudioManager'
@@ -46,6 +46,7 @@ const SERVER = {
 export function CommandPlay() {
   const { phase, stage, progress, speed, eta, filesDone, filesTotal, bytesDone, bytesTotal, currentFile, play, stop, cancel, sessionStart } = useLaunch()
   const mp = useModpackState()
+  const plan = useModpack((s) => s.plan)
   const installedVersion = useSettings((st) => st.settings.modpackVersion)
   const { state: server, players, maxPlayers, cycleState } = useServer()
   const route = useUi((s) => s.route)
@@ -254,7 +255,11 @@ export function CommandPlay() {
               <span className="truncate">
                 ·{' '}
                 <span className="font-semibold text-accent-text">{mp.kind === 'update' ? `TEOF-${mp.installed} → ${mp.latest.tag}` : mp.latest.tag}</span>
-                {mp.latest.asset ? ` · ${formatMB(mp.latest.asset.size)}` : ''}
+                {plan && plan.to === mp.latest.tag && plan.mode === 'delta'
+                  ? ` · ${formatMB(plan.downloadBytes)}`
+                  : mp.latest.asset
+                    ? ` · ${formatMB(mp.latest.asset.size)}`
+                    : ''}
               </span>
             ) : server === 'online' ? (
               <>

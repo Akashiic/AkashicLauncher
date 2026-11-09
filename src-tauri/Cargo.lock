@@ -1031,6 +1031,7 @@ name = "forbidden-launcher"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "crc32fast",
  "flate2",
  "futures-util",
  "hex",

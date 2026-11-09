@@ -105,9 +105,21 @@ Tudo em `src-tauri/src/game/`; a interface só recebe eventos (`launch:progress`
 |---|---|---|
 | 1. Java | Zulu 8u512 da Azul no 1º uso, **SHA-256 fixado** no código; extraído em `runtime/zulu-8u512` | `java.rs` |
 | 2. Minecraft 1.7.10 | JSON da versão (SHA-1 fixado), client.jar, bibliotecas, nativos LWJGL 2.9.1, assets (16 downloads paralelos, cada arquivo conferido pelo SHA-1) e o XML de log da Mojang que corrige o **Log4Shell** | `minecraft.rs` |
-| 3. Modpack | baixa o `.zip` do release TEOF- com **retomada**, confere tamanho e o SHA-256 que o GitHub publica (`digest`), remove os arquivos da versão anterior que saíram do pack (ex.: mods antigos) e extrai. **Mantém** `options.txt`, `optionsof.txt`, `servers.dat` e `saves/` do jogador. Aceita o .zip com ou sem uma pasta raiz | `modpack.rs` |
+| 3. Modpack | 1ª vez: baixa o `.zip` do release mais novo inteiro (com **retomada**, tamanho e SHA-256 do GitHub conferidos) e extrai. Depois: **atualizador incremental** (veja abaixo). **Mantém** `options.txt`, `optionsnf.txt`, `servers.dat`, `saves/` e os mapas do JourneyMap. Aceita o .zip com ou sem uma pasta raiz | `modpack.rs`, `zipremote.rs` |
 | 4. Forge | formato Technic: usa o `bin/modpack.jar` do pack (e o `version.json` dele); sem ele, o Forge 10.13.4.1614 oficial (SHA-1 fixado). Bibliotecas (Scala, LaunchWrapper...) dos repositórios Forge/Mojang, com o Maven Central de reserva | `forge.rs` |
 | 5. Jogo | extrai os nativos, monta o classpath (Forge vence duplicadas), inicia `javaw` sem console, converte o log XML em linhas legíveis, detecta a janela do jogo (vai para a bandeja) e o fechamento (o launcher volta e procura atualizações) | `launch.rs` |
+
+### Atualizador do modpack
+
+O launcher **não vem com modpack nenhum**: o primeiro JOGAR instala a versão mais nova publicada nos **Releases** do GitHub (só os releases contam — não branches, tags soltas ou o código do repositório). Depois disso:
+
+- **Só baixa o que mudou.** O launcher lê apenas o índice do `.zip` do release novo (HTTP Range, ~200 KB mesmo num .zip de 450 MB), compara o CRC-32 de cada arquivo com o instalado e busca só os arquivos alterados, em poucos pedaços do próprio .zip. Se a mudança for grande (>70% do pack) ou o servidor não aceitar pedaços, faz o download completo.
+- **Tamanho exato antes de clicar:** "TEOF-5.3 → TEOF-5.4 · 12 MB", e um aviso único quando sai versão nova (ao abrir, a cada 30 min e quando o jogo fecha).
+- **Seguro:** os arquivos novos vão para uma área separada e são conferidos; a troca é registrada num diário e, se algo falhar (ou o PC desligar no meio), a versão anterior é restaurada.
+- **Respeita o jogador:** configs editadas só são trocadas se o pack mudou aquele arquivo; opções, servidores, mundos e mapas nunca são tocados.
+- **Autorreparo:** a cada JOGAR, mods apagados ou corrompidos voltam sozinhos (só eles). **Verificar arquivos** confere o CRC-32 de tudo.
+- **Sem internet:** joga com a versão instalada e avisa; atualiza no próximo JOGAR com conexão.
+- Testado com um pack de 451 MB: 1ª instalação 451 MB; atualização com 1 mod removido, 1 config alterada e 1 arquivo novo = **211 KB** baixados; um mod apagado restaurado com 291 KB.
 
 - **2ª vez em diante:** só confere tamanhos (rápido). **Verificar arquivos** (Configurações → Desempenho → Java) confere o SHA-1 de tudo e baixa de novo o que estiver corrompido.
 - **Pastas** (Windows: `%APPDATA%\com.forbiddenseries.launcher\`): `minecraft/` (bibliotecas, assets), `instances/forbidden/` (a pasta do jogo: mods, config, saves), `runtime/` (Java).

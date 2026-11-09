@@ -106,6 +106,10 @@ impl Net {
         Ok(Self { client, cancel })
     }
 
+    pub fn client(&self) -> &reqwest::Client {
+        &self.client
+    }
+
     pub fn check(&self) -> Result<()> {
         if self.cancel.load(Ordering::Relaxed) {
             return Err(Cancelled.into());
