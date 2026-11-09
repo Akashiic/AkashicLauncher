@@ -28,8 +28,8 @@ pub struct InstalledPack {
 }
 
 /// Arquivos do jogador: o pack nunca sobrescreve se já existirem.
-const KEEP_IF_EXISTS: &[&str] = &["options.txt", "optionsof.txt", "optionsshaders.txt", "servers.dat"];
-const KEEP_DIRS: &[&str] = &["saves/", "screenshots/", "logs/", "crash-reports/"];
+const KEEP_IF_EXISTS: &[&str] = &["options.txt", "optionsof.txt", "optionsnf.txt", "optionsshaders.txt", "servers.dat"];
+const KEEP_DIRS: &[&str] = &["saves/", "screenshots/", "logs/", "crash-reports/", "journeymap/data/"];
 
 fn state_file(instance: &Path) -> PathBuf {
     instance.join(".forbidden").join("pack.json")
