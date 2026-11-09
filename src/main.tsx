@@ -11,6 +11,7 @@ import '@fontsource/oswald/latin-ext-400.css'
 import '@fontsource/oswald/latin-ext-600.css'
 import '@fontsource/oswald/latin-ext-700.css'
 import App from './App'
+import { setupDesktop } from './lib/desktop'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -20,3 +21,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </MotionConfig>
   </React.StrictMode>,
 )
+
+setupDesktop()

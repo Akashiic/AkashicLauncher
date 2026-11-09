@@ -12,7 +12,7 @@ export type Minimap = 'journeymap' | 'voxelmap' | 'none'
 
 export type AccountType = 'microsoft' | 'offline'
 
-/** Perfil de jogador. Tokens da Microsoft NUNCA ficam aqui (na versão real: safeStorage no processo principal). */
+/** Perfil de jogador. Tokens da Microsoft NUNCA ficam aqui (na versão real: cofre do sistema, via Rust). */
 export interface Account {
   id: string
   type: AccountType

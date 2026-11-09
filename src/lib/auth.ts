@@ -1,15 +1,15 @@
 /**
  * Login com a conta Microsoft — SIMULADO nesta versão (nenhuma rede é usada).
  *
- * Fluxo real (a implementar no processo principal do Electron, via IPC):
- *  1. OAuth da Microsoft (MSAL, tenant "consumers") numa BrowserWindow → código → token
+ * Fluxo real (a implementar em Rust, em src-tauri, exposto como comando):
+ *  1. OAuth da Microsoft (MSAL, tenant "consumers") numa janela do app → código → token
  *  2. Xbox Live:   POST https://user.auth.xboxlive.com/user/authenticate
  *  3. XSTS:        POST https://xsts.auth.xboxlive.com/xsts/authorize
  *  4. Minecraft:   POST https://api.minecraftservices.com/authentication/login_with_xbox
  *  5. Licença:     GET  https://api.minecraftservices.com/entitlements/mcstore
  *  6. Perfil:      GET  https://api.minecraftservices.com/minecraft/profile  → nick + UUID
  * Requisitos: app registrado no Azure + aprovação da Mojang para usar a API do Minecraft.
- * Tokens guardados com safeStorage do Electron, nunca no settings.json.
+ * Tokens guardados no cofre do sistema (crate keyring: Credential Manager no Windows), nunca no settings.json.
  */
 
 export const MS_STEPS = ['Conta Microsoft', 'Xbox Live', 'Autorização XSTS', 'Minecraft', 'Perfil do jogador'] as const

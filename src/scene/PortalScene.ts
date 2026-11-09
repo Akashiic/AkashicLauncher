@@ -61,6 +61,7 @@ export class PortalScene {
   private disposed = false
   onFirstFrame?: () => void
   private firstFrameDone = false
+  private warmed = false
 
   constructor(private canvas: HTMLCanvasElement) {
     this.pal = scenePalette()
@@ -463,7 +464,57 @@ export class PortalScene {
     const pr = this.renderer.getPixelRatio()
     this.bloom.resolution.set(this.width * pr * 0.5, this.height * pr * 0.5)
     this.grade.uniforms.uResolution.value = [this.width * pr, this.height * pr]
-    if (!this.running) this.frame(this.time)
+    if (!this.running && this.warmed) this.frame(this.time)
+  }
+
+  /**
+   * Compila todos os shaders antes do primeiro quadro, sem travar a interface:
+   * com KHR_parallel_shader_compile (Chrome/Edge/WebView2 no Windows) a compilação
+   * roda fora da thread principal. Sem ele, o driver ao menos ganha alguns quadros
+   * de folga antes do primeiro uso. As chaves dos programas dependem do destino
+   * (tela ou render target), então cada grupo é compilado com o destino real.
+   */
+  async warmup() {
+    if (this.warmed || this.disposed) return
+    const r = this.renderer
+    const quad = new THREE.PlaneGeometry(2, 2)
+    const group = (passes: object[]) => {
+      const g = new THREE.Scene()
+      const seen = new Set<THREE.Material>()
+      const visit = (v: unknown) => {
+        if (v instanceof THREE.Material) seen.add(v)
+        else if (Array.isArray(v)) v.forEach(visit)
+      }
+      passes.forEach((pass) => Object.values(pass).forEach(visit))
+      seen.forEach((m) => g.add(new THREE.Mesh(quad, m)))
+      return g
+    }
+    const passes = this.composer.passes
+    // o OutputPass só define tone mapping/espaço de cor no primeiro render: aplica antes, sem desenhar
+    const last = passes[passes.length - 1] as OutputPass & { fsQuad: { render(r: THREE.WebGLRenderer): void } }
+    if (last instanceof OutputPass) {
+      const draw = last.fsQuad.render
+      last.fsQuad.render = () => {}
+      last.render(r, this.composer.renderTarget2, this.composer.renderTarget1, 0, false)
+      last.fsQuad.render = draw
+    }
+    const offscreen = group(passes.slice(0, -1))
+    const onscreen = group(passes.slice(-1))
+    try {
+      r.setRenderTarget(this.composer.renderTarget1) // a cena e os passes intermediários desenham em render targets
+      const a = r.compileAsync(this.scene, this.camera)
+      const b = r.compileAsync(offscreen, this.camera)
+      r.setRenderTarget(null) // o último passe desenha na tela
+      const c = r.compileAsync(onscreen, this.camera)
+      await Promise.all([a, b, c])
+      if (!r.extensions.has('KHR_parallel_shader_compile')) await new Promise((res) => setTimeout(res, 32))
+    } catch (e) {
+      console.warn('[cena] pré-compilação falhou; os shaders compilam no primeiro quadro.', e)
+    } finally {
+      r.setRenderTarget(null)
+      quad.dispose()
+    }
+    this.warmed = true
   }
 
   start() {

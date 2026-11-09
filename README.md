@@ -5,23 +5,44 @@
 Launcher desktop (UI/UX + áudio + estado) para o servidor **Minecraft 1.7.10 Modded**.
 Download de arquivos e execução do Java são **simulados** — toda a experiência é testável.
 
-**Stack:** Electron (frameless) · React 18 + TypeScript · Vite · Tailwind CSS · Framer Motion · Zustand · Web Audio API.
+**Stack:** Tauri 2 + Rust (processo nativo) · React 18 + TypeScript · Vite · Tailwind CSS · Framer Motion · Three.js · Zustand · Web Audio API.
+
+### Por que Tauri (Rust)
+
+A interface é a mesma (React, cena 3D, animações); só a "casca" nativa trocou de Electron para Tauri.
+O Tauri usa o WebView do sistema em vez de levar um Chromium junto. No Windows esse WebView é o **WebView2, baseado em Chromium**, então a renderização e as animações são as mesmas do Electron.
+
+| | Electron 33 | Tauri 2 |
+|---|---|---|
+| Executável | ~263 MB (runtime) | **7,4 MB** |
+| Janela visível ao abrir* | ~0,4–0,55 s | ~0,35–0,55 s |
+| Memória (soma dos processos)* | ~780 MB | ~680 MB |
+
+\* Medido num ambiente sem GPU (renderização por software), que infla a memória dos dois. Em máquinas com placa de vídeo os números absolutos são bem menores; a proporção de tamanho é a mesma.
+
+**Fluidez na abertura:** a cena 3D monta em etapas curtas e pré-compila todos os shaders antes do primeiro quadro (`PortalScene.warmup()`, com `KHR_parallel_shader_compile` quando disponível — Chrome/Edge/WebView2), para a abertura não engasgar. A janela nasce oculta, com o fundo do tema, e aparece quando a interface monta (sem piscar em branco).
+
 
 ## Rodando
 
 ```bash
 npm install
-npm run dev:electron   # app desktop (Vite + Electron)
+npm run dev:desktop    # app desktop (Vite + Tauri); compila o Rust na primeira vez
 npm run dev            # só no navegador: http://localhost:5173
-npm run build          # typecheck + build de produção (dist/)
-npm start              # Electron carregando o build de dist/
+npm run build          # typecheck + build da interface (dist/)
+npm run build:desktop  # instaladores (Windows: NSIS/MSI) em src-tauri/target/release/bundle/
 ```
+
+Requisitos para o app desktop: [Rust](https://rustup.rs) e, no Windows, o WebView2 (já vem no Windows 10/11 atualizado; o instalador baixa se faltar). No Linux: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`.
 
 ## Estrutura
 
 ```
-electron/main.cjs        janela frameless, IPC de janela, settings.json em userData
-electron/preload.cjs     ponte segura (window.akashic)
+src-tauri/src/lib.rs     processo nativo em Rust: bandeja, settings.json, pastas/links, instância única
+src-tauri/tauri.conf.json janela 1000×620 sem moldura, ícones, instaladores
+src-tauri/capabilities/  permissões da janela (só o necessário)
+src/lib/bridge.ts        ponte interface ↔ Rust (invoke/eventos), com fallback para o navegador
+src/lib/desktop.ts       arrastar a janela pelas áreas .drag e mostrar a janela ao montar
 src/audio/AudioManager   barramentos BGM / SFX / SBFX, síntese + suporte a arquivos
 src/store/               settings (persistente), launch (máquina de estados mock), server, ui, toasts
 src/components/fx        partículas em canvas + fundo em camadas com parallax
@@ -37,8 +58,8 @@ Todas as cores, fontes, raios e sombras ficam em **um único arquivo: `src/theme
 - `tailwind.config.js` só expõe classes que apontam para esses tokens (`bg-brand`, `text-muted`, `border-line`...). A paleta padrão do Tailwind está desativada, então não dá para usar cores fora do tema.
 - `src/theme/index.ts` lê os mesmos tokens para Canvas/SVG (partículas, avatar).
 - Fontes empacotadas offline via `@fontsource`: **League Gothic** (títulos e botão JOGAR, sempre em caixa alta) e **Oswald** 400/600/700 (texto, menus).
-- Marca oficial em `public/brand/` (símbolo, nome em linha e logo completo) e ícones em `electron/assets/` — veja `public/brand/README.md`.
-- Única exceção: `backgroundColor` em `electron/main.cjs` (cor da janela antes do React carregar) espelha `--bg-base`.
+- Marca oficial em `public/brand/` (símbolo, nome em linha e logo completo) e ícones em `src-tauri/icons/` — veja `public/brand/README.md`.
+- Única exceção: `backgroundColor` em `src-tauri/tauri.conf.json` (cor da janela antes do React carregar) espelha `--bg-base`.
 
 ## Layout: "B · Coluna de Comando"
 
@@ -71,7 +92,7 @@ aberração cromática, vinheta e granulado).
 
 ## Persistência
 
-- **Electron:** `<userData>/settings.json` (escrita atômica, debounce de 350 ms).
+- **App desktop:** `settings.json` na pasta de dados do app (Windows: `%APPDATA%\com.forbiddenseries.launcher\`), escrita atômica em Rust, debounce de 350 ms.
 - **Navegador:** `localStorage["akashic.settings.v1"]`.
 
 Arquivos antigos ou corrompidos são mesclados com os padrões, sem quebrar o app.
@@ -88,7 +109,7 @@ O launcher usa o próprio Java: **Azul Zulu · Java 8 (1.8.0_512), 64-bit**. Tud
 
 - Padrão: `javaMode: 'bundled'`. Configurações antigas com `'auto'` migram automaticamente para o Zulu.
 - "Usar outro Java (avançado)" (`'custom'`) aceita um caminho próprio; sem caminho, o Zulu continua sendo usado.
-- **Para a implementação real:** empacotar o JRE do Zulu 8u512 de cada sistema em `runtime/zulu-8u512/` (via `extraResources` do electron-builder) ou baixá-lo do site da Azul no primeiro uso, sempre conferindo o checksum (SHA-256) antes de extrair. No Windows, usar `bin/javaw.exe` (sem console); no Linux/macOS, `bin/java`.
+- **Para a implementação real:** empacotar o JRE do Zulu 8u512 de cada sistema em `runtime/zulu-8u512/` (via `bundle.resources` do Tauri) ou baixá-lo do site da Azul no primeiro uso, sempre conferindo o checksum (SHA-256) antes de extrair. No Windows, usar `bin/javaw.exe` (sem console); no Linux/macOS, `bin/java`.
 
 ## Modpack: versões TEOF- do GitHub
 
@@ -103,11 +124,11 @@ As versões vêm **de verdade** dos releases de [Akashiic/Technic-Forbidden](htt
 - O JOGAR vira **INSTALAR** (nada instalado) ou **ATUALIZAR** (versão nova), com "TEOF-5.3 → TEOF-5.4 · tamanho" embaixo.
 - Cache com ETag: consultas repetidas recebem `304` e não gastam o limite de 60/hora da API sem login. Sem conexão, usa a última lista salva e joga com a versão instalada.
 - Código: `src/lib/modpack.ts` (busca/ordenação), `src/store/modpack.ts` (estado), `src/components/modpack/ModpackVersions.tsx` (painel).
-- **Ainda simulado:** a transferência do `.zip` e a extração. Na implementação real, baixar `asset.url` no processo principal (com retomada), conferir o tamanho/hash e extrair na pasta do jogo antes de marcar a versão como instalada.
+- **Ainda simulado:** a transferência do `.zip` e a extração. Na implementação real, baixar `asset.url` em Rust (comando do Tauri, com retomada e progresso por evento), conferir o tamanho/hash e extrair na pasta do jogo antes de marcar a versão como instalada.
 
 ## Bandeja do sistema
 
-Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone em `electron/assets/tray.png` (olho com moldura pixelada da marca). Na implementação real, o processo principal deve chamar `win.show()` e avisar o renderer quando o processo do Java terminar.
+Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone em `src-tauri/icons/tray@2x.png` (olho com moldura pixelada da marca). Abrir o launcher de novo com ele na bandeja só traz a janela para frente (instância única). Na implementação real, o Rust deve iniciar o Java, mostrar a janela e avisar a interface quando o processo do jogo terminar.
 
 ## Flags da JVM
 
@@ -127,12 +148,12 @@ O login é um **painel dentro da coluna de comando** (`src/components/account/Ac
 - **Com perfil:** no menu do jogador (rodapé da coluna), *Adicionar perfil* desliza a coluna para o login, com **Voltar** (ou Esc) e a lista **Perfis salvos** para trocar com um clique. O mesmo menu troca de perfil, troca a skin ou remove o perfil; removendo o último, o login obrigatório volta.
 
 - **Offline:** nick de 3–16 caracteres (`A-Z a-z 0-9 _`). UUID igual ao do Minecraft: `UUID.nameUUIDFromBytes("OfflinePlayer:" + nick)` (`src/lib/offlineUuid.ts`, conferido contra o MD5 do Node).
-- **Microsoft:** login **simulado** nesta versão (`src/lib/auth.ts`), mostrando as etapas reais. Para a implementação real (no processo principal, via IPC):
+- **Microsoft:** login **simulado** nesta versão (`src/lib/auth.ts`), mostrando as etapas reais. Para a implementação real (em Rust, como comandos do Tauri):
   1. OAuth da Microsoft (MSAL, tenant `consumers`) numa BrowserWindow;
   2. Xbox Live (`user.auth.xboxlive.com`) → XSTS (`xsts.auth.xboxlive.com`);
   3. `api.minecraftservices.com/authentication/login_with_xbox` → licença (`/entitlements/mcstore`) → perfil (`/minecraft/profile`).
   - **Requisitos:** app registrado no Azure **e aprovação da Mojang** para acessar a API do Minecraft (apps novos precisam pedir liberação).
-  - Tokens com `safeStorage` do Electron — nunca no `settings.json` (lá ficam só nick, UUID, tipo e skin).
+  - Tokens no cofre do sistema (crate `keyring`: Credential Manager no Windows) — nunca no `settings.json` (lá ficam só nick, UUID, tipo e skin).
 - Cada perfil tem a própria skin; o perfil ativo aparece nos logs ao jogar.
 
 ## Skin
@@ -148,6 +169,6 @@ Clique no jogador (rodapé da coluna) para abrir o painel **Skin**: boneco 3D (a
 
 ## Onde plugar a lógica real
 
-- `src/store/launch.ts` → troque `verify` / `download` / `launch` por chamadas IPC reais (o executável Java vem de `src/lib/java.ts`).
+- `src/store/launch.ts` → troque `verify` / `download` / `launch` por comandos Rust reais via `invoke` (o executável Java vem de `src/lib/java.ts`).
 - `src/store/server.ts` → troque `tick()` por um Server List Ping de verdade.
 - `src/lib/content.ts` → notícias e changelog vindos da sua API.

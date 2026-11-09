@@ -172,7 +172,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     bridge.window.setGameRunning(true)
     const msg =
       behavior === 'tray'
-        ? bridge.isElectron
+        ? bridge.isDesktop
           ? 'O launcher foi para a bandeja do sistema. Ele volta quando o jogo fechar.'
           : 'No app, o launcher iria para a bandeja do sistema agora (no navegador isso não existe).'
         : behavior === 'close'

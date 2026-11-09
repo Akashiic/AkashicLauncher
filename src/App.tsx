@@ -22,6 +22,7 @@ import { useLaunch } from '@/store/launch'
 import { audio } from '@/audio/AudioManager'
 import { bridge } from '@/lib/bridge'
 import { Logo } from '@/components/ui/Logo'
+import { revealWindow } from '@/lib/desktop'
 import { cn, EASE } from '@/lib/cn'
 
 const PANELS = {
@@ -77,6 +78,9 @@ export default function App() {
     return () => window.clearInterval(id)
   }, [tickServer])
 
+  // a janela nativa nasce oculta: aparece já com a tela de abertura montada
+  useEffect(() => revealWindow(), [])
+
   useEffect(() => {
     void hydrate().then(() => {
       audio.init()
@@ -86,12 +90,12 @@ export default function App() {
   }, [hydrate])
 
   return (
-    <div className={cn('flex h-full w-full items-center justify-center', !bridge.isElectron && 'bg-shade')}>
+    <div className={cn('flex h-full w-full items-center justify-center', !bridge.isDesktop && 'bg-shade')}>
       {/* translateZ(0): elementos "fixed" (modais, toasts) ficam presos à janela */}
       <div
         className={cn(
           'relative flex overflow-hidden bg-bg [transform:translateZ(0)]',
-          bridge.isElectron ? 'h-full w-full' : 'h-[620px] w-[1000px] rounded-2xl border border-line shadow-popover',
+          bridge.isDesktop ? 'h-full w-full' : 'h-[620px] w-[1000px] rounded-2xl border border-line shadow-popover',
         )}
       >
         <Background />

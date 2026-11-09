@@ -28,13 +28,19 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
     let cancelled = false
     let ro: ResizeObserver | undefined
     const canvas = ref.current!
+    const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
+    // montagem em etapas curtas: a abertura continua animando enquanto a cena prepara
     import('@/scene/PortalScene')
-      .then(({ PortalScene }) => {
+      .then(async ({ PortalScene }) => {
+        await nextFrame()
         if (cancelled) return
         const scene = new PortalScene(canvas)
         sceneRef.current = scene
         if (import.meta.env.DEV) window.__portal = scene
         scene.onFirstFrame = () => setVisible(true)
+        await nextFrame()
+        await scene.warmup()
+        if (cancelled) return
         const fit = () => scene.resize(canvas.clientWidth, canvas.clientHeight)
         fit()
         ro = new ResizeObserver(fit)
@@ -42,6 +48,7 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
         window.dispatchEvent(new Event('portal:ready'))
       })
       .catch((e) => {
+        if (cancelled) return
         console.warn('[cena] WebGL indisponível, usando fundo simples.', e)
         onUnavailable()
       })
