@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Home, Newspaper, Package, type LucideIcon } from 'lucide-react'
 import { useUi, type Route } from '@/store/ui'
 import { NEWS } from '@/lib/content'
@@ -8,6 +9,8 @@ import { CommandPlay } from './CommandPlay'
 import { UserBar } from './UserBar'
 import { cn, EASE } from '@/lib/cn'
 import { useFx } from '@/store/fx'
+import { useSettings } from '@/store/settings'
+import { AccountPanel } from '@/components/account/AccountPanel'
 
 const NAV: { id: Route; label: string; icon: LucideIcon; badge?: number }[] = [
   { id: 'home', label: 'Início', icon: Home },
@@ -71,30 +74,72 @@ function LatestNews() {
 /** Coluna de comando (formato B): marca, navegação, novidade, perfil, JOGAR e jogador. */
 export function CommandColumn() {
   const introDone = useFx((s) => s.introDone)
+  const hydrated = useSettings((s) => s.hydrated)
+  const mandatory = useSettings((s) => s.settings.accounts.length === 0)
+  const addOpen = useUi((s) => s.addAccountOpen)
+  const login = hydrated && (mandatory || addOpen)
+
+  // espera um instante após a abertura: o clique que pula a intro não pode "atravessar" para o painel
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    if (!introDone) return
+    const t = window.setTimeout(() => setSettled(true), 450)
+    return () => window.clearTimeout(t)
+  }, [introDone])
+
+  // no login a área aberta mostra só a cena e o slogan
+  useEffect(() => {
+    if (login) useUi.getState().navigate('home')
+  }, [login])
+
   return (
     <motion.aside
       initial={{ x: -40, opacity: 0 }}
       animate={introDone ? { x: 0, opacity: 1 } : { x: -40, opacity: 0 }}
       transition={{ duration: 0.8, ease: EASE }}
-      className="panel relative z-30 flex h-full w-[288px] shrink-0 flex-col border-y-0 border-l-0 !border-r-accent/40 px-[18px] pb-4 pt-[22px] shadow-[1px_0_24px_-8px_var(--accent)]"
+      aria-label={login ? 'Entrar' : undefined}
+      className={cn(
+        'panel relative z-30 flex h-full w-[288px] shrink-0 flex-col overflow-hidden border-y-0 border-l-0 !border-r-accent/40 px-[18px] pb-4 pt-[22px] shadow-[1px_0_24px_-8px_var(--accent)]',
+        !settled && 'pointer-events-none',
+      )}
     >
       <div className="drag flex items-center gap-2.5 px-1">
         <Logo variant="mark" size={38} pulse />
         <Logo variant="wordmark" size={19} />
       </div>
-
-      <nav className="mt-6 flex flex-col gap-0.5" aria-label="Navegação principal">
-        {NAV.map((item) => (
-          <NavItem key={item.id} {...item} />
-        ))}
-      </nav>
-
-      <LatestNews />
-
-      <div className="flex-1" />
-
-      <CommandPlay />
-      <UserBar />
+      <AnimatePresence mode="wait" initial={false}>
+        {login ? (
+          <motion.div
+            key={mandatory ? 'login-first' : 'login-add'}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.32, ease: EASE }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <AccountPanel mandatory={mandatory} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="main"
+            initial={{ opacity: 0, x: -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.32, ease: EASE }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <nav className="mt-6 flex flex-col gap-0.5" aria-label="Navegação principal">
+              {NAV.map((item) => (
+                <NavItem key={item.id} {...item} />
+              ))}
+            </nav>
+            <LatestNews />
+            <div className="flex-1" />
+            <CommandPlay />
+            <UserBar />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.aside>
   )
 }

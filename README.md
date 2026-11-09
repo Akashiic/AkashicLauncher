@@ -121,7 +121,10 @@ Presets não editados acompanham as flags atuais automaticamente; flags personal
 
 ## Perfis (obrigatório)
 
-Sem perfil não dá para jogar: depois da abertura aparece **Crie seu perfil** (sem botão de fechar). Clicando no jogador (rodapé da coluna) abre o menu para trocar de perfil, adicionar outro, trocar a skin ou remover.
+O login é um **painel dentro da coluna de comando** (`src/components/account/AccountPanel.tsx`), não um modal: a cena e o slogan continuam visíveis à direita.
+
+- **Sem perfil:** depois da abertura a coluna vira **Entrar** (sem "Voltar"): botão *Entrar com Microsoft* e, no rodapé, *Mudar para modo offline*, que troca o painel para o campo do nick.
+- **Com perfil:** no menu do jogador (rodapé da coluna), *Adicionar perfil* desliza a coluna para o login, com **Voltar** (ou Esc) e a lista **Perfis salvos** para trocar com um clique. O mesmo menu troca de perfil, troca a skin ou remove o perfil; removendo o último, o login obrigatório volta.
 
 - **Offline:** nick de 3–16 caracteres (`A-Z a-z 0-9 _`). UUID igual ao do Minecraft: `UUID.nameUUIDFromBytes("OfflinePlayer:" + nick)` (`src/lib/offlineUuid.ts`, conferido contra o MD5 do Node).
 - **Microsoft:** login **simulado** nesta versão (`src/lib/auth.ts`), mostrando as etapas reais. Para a implementação real (no processo principal, via IPC):
