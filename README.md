@@ -99,10 +99,25 @@ As versões vêm **de verdade** dos releases de [Akashiic/Technic-Forbidden](htt
 3. ordena numericamente (5.10 > 5.9) e compara com a versão instalada (`modpackVersion`);
 4. o arquivo do modpack é o `.zip` anexado ao release (o maior, se houver mais de um).
 
+- **Quando procura:** sempre ao abrir o launcher, a cada 30 min, quando o jogo fecha (o launcher volta da bandeja) e quando a janela reaparece depois de mais de 2 min.
 - O JOGAR vira **INSTALAR** (nada instalado) ou **ATUALIZAR** (versão nova), com "TEOF-5.3 → TEOF-5.4 · tamanho" embaixo.
 - Cache com ETag: consultas repetidas recebem `304` e não gastam o limite de 60/hora da API sem login. Sem conexão, usa a última lista salva e joga com a versão instalada.
 - Código: `src/lib/modpack.ts` (busca/ordenação), `src/store/modpack.ts` (estado), `src/components/modpack/ModpackVersions.tsx` (painel).
 - **Ainda simulado:** a transferência do `.zip` e a extração. Na implementação real, baixar `asset.url` no processo principal (com retomada), conferir o tamanho/hash e extrair na pasta do jogo antes de marcar a versão como instalada.
+
+## Bandeja do sistema
+
+Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone provisório em `electron/assets/tray.png` (trocar pelo logo). Na implementação real, o processo principal deve chamar `win.show()` e avisar o renderer quando o processo do Java terminar.
+
+## Flags da JVM
+
+Campo livre, sem restrição (uma flag por linha). O launcher só **avisa** (ex.: `-Xmx` sobrescrevendo o controle de RAM, dois coletores ao mesmo tempo), nunca bloqueia. Presets em `src/lib/jvm.ts`, com explicação de cada flag:
+
+- **Otimizado (recomendado, padrão):** base oficial da Mojang para Java 8 + `ParallelRefProcEnabled`, `DisableExplicitGC`, `UseStringDeduplication` e as flags do FML.
+- **Vanilla (Mojang):** as flags do launcher oficial para Java 8.
+- **PC fraco:** G1 leve com menos threads (substitui o CMS, obsoleto no Java 8).
+
+Presets não editados acompanham as flags atuais automaticamente; flags personalizadas nunca são alteradas.
 
 ## Perfis (obrigatório)
 

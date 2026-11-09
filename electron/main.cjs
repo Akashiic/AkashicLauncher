@@ -1,6 +1,6 @@
 // Akashic Launcher — processo principal do Electron.
 // Janela frameless, controles de janela via IPC e persistência das configurações em JSON local.
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 
@@ -9,6 +9,39 @@ const SETTINGS_FILE = () => path.join(app.getPath('userData'), 'settings.json')
 
 /** @type {BrowserWindow | null} */
 let win = null
+/** @type {Tray | null} */
+let tray = null
+let gameRunning = false
+
+// ---- Bandeja do sistema ----
+// Ao iniciar o jogo o launcher se esconde aqui; ao fechar o jogo ele reaparece.
+function showLauncher() {
+  if (!win) return
+  win.show()
+  if (win.isMinimized()) win.restore()
+  win.focus()
+}
+
+function refreshTrayMenu() {
+  if (!tray) return
+  tray.setToolTip(gameRunning ? 'Forbidden Series · jogo em execução' : 'Forbidden Series')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Abrir launcher', click: showLauncher },
+      { label: 'Fechar o jogo', enabled: gameRunning, click: () => win && win.webContents.send('tray:stop-game') },
+      { type: 'separator' },
+      { label: 'Sair', click: () => app.quit() },
+    ]),
+  )
+}
+
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'))
+  tray = new Tray(process.platform === 'darwin' ? icon.resize({ width: 16, height: 16 }) : icon)
+  tray.on('click', showLauncher)
+  tray.on('double-click', showLauncher)
+  refreshTrayMenu()
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -51,7 +84,12 @@ ipcMain.on('window:toggle-maximize', () => {
 })
 ipcMain.on('window:close', () => win && win.close())
 ipcMain.on('window:hide', () => win && win.hide())
-ipcMain.on('window:show', () => win && (win.show(), win.focus()))
+ipcMain.on('window:show', showLauncher)
+// o renderer avisa quando o jogo abre/fecha (para o menu da bandeja)
+ipcMain.on('game:state', (_e, running) => {
+  gameRunning = !!running
+  refreshTrayMenu()
+})
 
 // ---- Persistência (JSON local em userData/settings.json) ----
 ipcMain.handle('settings:load', async () => {
@@ -91,6 +129,11 @@ ipcMain.handle('shell:open-external', async (_e, url) => {
 
 app.whenReady().then(() => {
   createWindow()
+  try {
+    createTray()
+  } catch (e) {
+    console.warn('[tray] bandeja indisponível neste sistema:', e)
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

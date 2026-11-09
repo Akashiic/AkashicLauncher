@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, AlertTriangle, XOctagon, Coffee, FolderSearch, Zap, Scale, Feather, Pencil, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronDown, Coffee, Feather, FolderSearch, Pencil, RotateCcw, Scale, ShieldCheck, XOctagon, Zap } from 'lucide-react'
 import { useState } from 'react'
-import { JVM_PRESETS, useSettings, type JvmPreset } from '@/store/settings'
+import { useSettings, type JvmPreset } from '@/store/settings'
+import { JVM_PRESETS, RECOMMENDED_PRESET, describeFlags, flagWarnings } from '@/lib/jvm'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
 import { Switch } from '@/components/ui/Switch'
 import { Slider } from '@/components/ui/Slider'
@@ -24,6 +25,9 @@ export function PerformanceTab() {
   const s = useSettings((st) => st.settings)
   const update = useSettings((st) => st.update)
   const [checking, setChecking] = useState(false)
+  const [showDocs, setShowDocs] = useState(false)
+  const flags = describeFlags(s.jvmArgs)
+  const warnings = flagWarnings(s.jvmArgs)
   const v = ramVerdict(s.memoryGb)
   const systemRam = 16
 
@@ -153,7 +157,7 @@ export function PerformanceTab() {
         </div>
       </Section>
 
-      <Section title="Argumentos da JVM" desc="Escolha um preset pronto ou edite manualmente se souber o que está fazendo.">
+      <Section title="Flags da JVM" desc="Campo livre: escreva qualquer flag, o launcher não bloqueia nada. Os presets já trazem as essenciais de otimização.">
         <div className="grid grid-cols-3 gap-2">
           {(
             [
@@ -172,6 +176,7 @@ export function PerformanceTab() {
                   audio.play('toggleOn')
                   update({ jvmPreset: key, jvmArgs: p.args })
                 }}
+                aria-pressed={active}
                 className={cn(
                   'rounded-xl border p-3 text-left transition-all duration-300',
                   active ? 'border-accent bg-brand/40 shadow-glow' : 'border-line bg-bg/60 hover:border-line-strong',
@@ -188,15 +193,71 @@ export function PerformanceTab() {
           <textarea
             value={s.jvmArgs}
             spellCheck={false}
+            aria-label="Flags da JVM"
             onChange={(e) => update({ jvmArgs: e.target.value, jvmPreset: 'custom' as JvmPreset })}
-            rows={3}
-            className="w-full resize-none rounded-xl border border-line bg-bg/70 p-3 font-mono text-[11px] leading-relaxed text-muted focus:border-accent focus:outline-none"
+            rows={6}
+            wrap="off"
+            className="w-full resize-y overflow-x-auto whitespace-pre rounded-xl border border-line bg-bg/70 p-3 pr-28 font-mono text-[12px] leading-relaxed text-fg focus:border-accent focus:outline-none"
           />
           {s.jvmPreset === 'custom' && (
             <span className="absolute right-3 top-2 flex items-center gap-1 text-[11px] text-warning">
               <Pencil size={10} /> personalizado
             </span>
           )}
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-subtle">
+          <span>
+            {flags.length} {flags.length === 1 ? 'flag' : 'flags'} · RAM pelo controle acima (-Xmx{s.memoryGb}G)
+          </span>
+          {s.jvmPreset !== RECOMMENDED_PRESET && (
+            <button
+              onMouseEnter={() => audio.play('hover')}
+              onClick={() => {
+                audio.play('click')
+                update({ jvmPreset: RECOMMENDED_PRESET, jvmArgs: JVM_PRESETS[RECOMMENDED_PRESET].args })
+              }}
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted transition-colors hover:bg-overlay/[0.06] hover:text-fg"
+            >
+              <RotateCcw size={11} /> Restaurar recomendadas
+            </button>
+          )}
+        </div>
+        {warnings.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {warnings.map((w) => (
+              <div key={w} className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-xs text-warning">
+                <AlertTriangle size={12} className="mt-px shrink-0" /> {w}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 rounded-xl border border-line bg-bg/40">
+          <button
+            onMouseEnter={() => audio.play('hover')}
+            onClick={() => {
+              audio.play(showDocs ? 'close' : 'tab')
+              setShowDocs((v) => !v)
+            }}
+            aria-expanded={showDocs}
+            className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm text-fg"
+          >
+            O que cada flag faz
+            <motion.span animate={{ rotate: showDocs ? 180 : 0 }} transition={{ duration: 0.25, ease: EASE }} className="text-muted">
+              <ChevronDown size={15} />
+            </motion.span>
+          </button>
+          <AnimatePresence initial={false}>
+            {showDocs && (
+              <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="overflow-hidden border-t border-line px-3">
+                {flags.map((f, i) => (
+                  <li key={`${f.flag}-${i}`} className="border-b border-line py-2 last:border-0">
+                    <code className="font-mono text-[12px] text-accent-text">{f.flag}</code>
+                    <p className="mt-0.5 text-xs text-muted">{f.doc ?? 'Flag personalizada (sem explicação cadastrada).'}</p>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
         </div>
       </Section>
     </div>

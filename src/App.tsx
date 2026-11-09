@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Background } from '@/components/fx/Background'
 import { CommandColumn } from '@/components/command/CommandColumn'
@@ -19,6 +19,7 @@ import { useUi } from '@/store/ui'
 import { useSettings } from '@/store/settings'
 import { useServer } from '@/store/server'
 import { useModpack } from '@/store/modpack'
+import { useLaunch } from '@/store/launch'
 import { audio } from '@/audio/AudioManager'
 import { bridge } from '@/lib/bridge'
 import { Logo } from '@/components/ui/Logo'
@@ -49,6 +50,27 @@ export default function App() {
     const id = window.setInterval(() => void checkModpack(), 30 * 60 * 1000)
     return () => window.clearInterval(id)
   }, [checkModpack])
+
+  // ao fechar o jogo (launcher volta da bandeja) procura atualizações automaticamente
+  const phase = useLaunch((s) => s.phase)
+  const prevPhase = useRef(phase)
+  useEffect(() => {
+    if ((prevPhase.current === 'running' || prevPhase.current === 'stopping') && phase === 'ready') void checkModpack()
+    prevPhase.current = phase
+  }, [phase, checkModpack])
+
+  // janela reaparecendo (ex.: aberta pela bandeja): verifica de novo se faz mais de 2 min
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.hidden) return
+      if (Date.now() - useModpack.getState().lastChecked > 2 * 60 * 1000) void checkModpack()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [checkModpack])
+
+  // "Fechar o jogo" no menu da bandeja
+  useEffect(() => bridge.window.onTrayStopGame(() => useLaunch.getState().stop()), [])
 
   // mock do status do servidor (substituir por um ping real depois)
   useEffect(() => {

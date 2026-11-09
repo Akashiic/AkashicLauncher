@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('akashic', {
     close: () => ipcRenderer.send('window:close'),
     hide: () => ipcRenderer.send('window:hide'),
     show: () => ipcRenderer.send('window:show'),
+    setGameRunning: (running) => ipcRenderer.send('game:state', !!running),
+    onTrayStopGame: (cb) => {
+      const fn = () => cb()
+      ipcRenderer.on('tray:stop-game', fn)
+      return () => ipcRenderer.removeListener('tray:stop-game', fn)
+    },
     onMaximized: (cb) => {
       const fn = (_e, v) => cb(v)
       ipcRenderer.on('window:maximized', fn)

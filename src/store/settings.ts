@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { JVM_PRESETS, RECOMMENDED_PRESET } from '@/lib/jvm'
 import { bridge } from '@/lib/bridge'
 import { audio, type AudioSettings, type ChannelSettings } from '@/audio/AudioManager'
 
@@ -43,23 +44,7 @@ export interface Settings {
   modpackVersion: string | null
 }
 
-export const JVM_PRESETS: Record<Exclude<JvmPreset, 'custom'>, { label: string; hint: string; args: string }> = {
-  default: {
-    label: 'Padrão',
-    hint: 'Equilíbrio seguro para a maioria dos PCs.',
-    args: '-XX:+UseG1GC -XX:MaxGCPauseMillis=50 -XX:+UnlockExperimentalVMOptions',
-  },
-  fps: {
-    label: 'Otimizado para FPS',
-    hint: 'G1GC agressivo, menos travadas em modpacks pesados.',
-    args: '-XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=40 -XX:G1HeapRegionSize=16M -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -Dfml.ignorePatchDiscrepancies=true',
-  },
-  low: {
-    label: 'PC Fraco',
-    hint: 'Menos threads de GC e menor uso de memória.',
-    args: '-XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:-UseAdaptiveSizePolicy -Xmn128M -XX:ParallelGCThreads=2',
-  },
-}
+export { JVM_PRESETS } from '@/lib/jvm'
 
 export const OPTIONAL_MODS: { id: string; name: string; desc: string; tag: 'Performance' | 'Visual' | 'Áudio' | 'Utilidade'; impact: 'baixo' | 'médio' | 'alto'; conflicts?: string[] }[] = [
   { id: 'fastcraft', name: 'FastCraft', desc: 'Otimizações de renderização e ticks. Ganho de FPS imediato na 1.7.10.', tag: 'Performance', impact: 'baixo', conflicts: ['angelica'] },
@@ -85,8 +70,8 @@ export const DEFAULT_SETTINGS: Settings = {
   memoryGb: 6,
   javaMode: 'bundled',
   javaPath: '',
-  jvmPreset: 'default',
-  jvmArgs: JVM_PRESETS.default.args,
+  jvmPreset: RECOMMENDED_PRESET,
+  jvmArgs: JVM_PRESETS[RECOMMENDED_PRESET].args,
   resolution: '1080p',
   launchBehavior: 'tray',
   optionalMods: { fastcraft: true, angelica: false, optifine: true, shaders: false, dynsurround: true, betterfoliage: false, 'nei-addons': true, inventorytweaks: true },
@@ -143,6 +128,10 @@ function merge(raw: unknown): Settings {
     memoryGb: Math.min(16, Math.max(2, Number(r.memoryGb) || d.memoryGb)),
     // versões antigas usavam 'auto' (detectar Java do sistema): migra para o Zulu incluso
     javaMode: r.javaMode === 'custom' ? 'custom' : 'bundled',
+    // presets não editados acompanham as flags atuais; flags personalizadas ficam como estão
+    ...(r.jvmPreset && r.jvmPreset !== 'custom' && r.jvmPreset in JVM_PRESETS
+      ? { jvmArgs: JVM_PRESETS[r.jvmPreset as keyof typeof JVM_PRESETS].args }
+      : {}),
     modpackVersion: typeof r.modpackVersion === 'string' && /^\d+(\.\d+)*$/.test(r.modpackVersion) ? r.modpackVersion : null,
     accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },

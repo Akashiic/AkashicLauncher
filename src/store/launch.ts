@@ -5,6 +5,7 @@ import { activeAccount, useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
 import { formatMB, type ModpackRelease } from '@/lib/modpack'
+import { normalizeFlags } from '@/lib/jvm'
 import { modpackState, useModpack } from '@/store/modpack'
 
 /**
@@ -81,6 +82,7 @@ const line = (s: string) => `[${ts()}] ${s}`
 
 let timer: number | undefined
 let runTimer: number | undefined
+let hideTimer: number | undefined
 
 const clear = () => {
   window.clearInterval(timer)
@@ -149,7 +151,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     log(account ? `[Launcher] Perfil: ${account.username} (${account.type === 'microsoft' ? 'Microsoft' : 'offline'}) · UUID ${account.uuid}` : '[Launcher] Nenhum perfil selecionado')
     const java = settings.javaMode === 'custom' && settings.javaPath.trim() ? settings.javaPath.trim() : JAVA_RUNTIME.executable
     log(`[Launcher] Java: ${settings.javaMode === 'custom' ? 'personalizado' : javaLabel}`)
-    log(`[Launcher] ${java} -Xms1G -Xmx${settings.memoryGb}G ${settings.jvmArgs.slice(0, 60)}... net.minecraft.launchwrapper.Launch`)
+    log(`[Launcher] ${java} -Xms1G -Xmx${settings.memoryGb}G ${normalizeFlags(settings.jvmArgs)} net.minecraft.launchwrapper.Launch`)
     let i = 0
     clear()
     timer = window.setInterval(() => {
@@ -167,13 +169,26 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     set({ phase: 'running', progress: 1, sessionStart: Date.now() })
     audio.play('success')
     const behavior = useSettings.getState().settings.launchBehavior
+    bridge.window.setGameRunning(true)
     const msg =
       behavior === 'tray'
-        ? 'O launcher seria minimizado para a bandeja (simulado).'
+        ? bridge.isElectron
+          ? 'O launcher foi para a bandeja do sistema. Ele volta quando o jogo fechar.'
+          : 'No app, o launcher iria para a bandeja do sistema agora (no navegador isso não existe).'
         : behavior === 'close'
           ? 'O launcher seria fechado agora (simulado para teste).'
           : 'O launcher permanece aberto enquanto você joga.'
     toast({ kind: 'success', title: 'Minecraft 1.7.10 em execução', body: msg })
+    if (behavior === 'tray') {
+      // espera o clarão do portal antes de esconder a janela
+      window.clearTimeout(hideTimer)
+      hideTimer = window.setTimeout(() => {
+        if (get().phase === 'running') {
+          log('[Launcher] Minimizado para a bandeja do sistema.')
+          bridge.window.hide()
+        }
+      }, 1600)
+    }
     runTimer = window.setInterval(() => log(RUNTIME_LOGS[Math.floor(Math.random() * RUNTIME_LOGS.length)]), 1600)
   }
 
@@ -245,10 +260,12 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     stop() {
       if (get().phase !== 'running' && get().phase !== 'launching') return
       clear()
+      window.clearTimeout(hideTimer)
       set({ phase: 'stopping' })
       log('[Client thread/INFO]: Stopping!')
       log('[Launcher] Processo do jogo finalizado (código 0).')
-      bridge.window.show()
+      bridge.window.setGameRunning(false)
+      bridge.window.show() // volta da bandeja
       window.setTimeout(backToReady, 900)
     },
   }

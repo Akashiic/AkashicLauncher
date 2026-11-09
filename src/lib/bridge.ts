@@ -8,6 +8,10 @@ export interface AkashicBridge {
     close(): void
     hide(): void
     show(): void
+    /** Informa o processo principal se o jogo está rodando (menu da bandeja). */
+    setGameRunning(running: boolean): void
+    /** "Fechar o jogo" clicado no menu da bandeja. */
+    onTrayStopGame(cb: () => void): () => void
     onMaximized(cb: (v: boolean) => void): () => void
   }
   settings: {
@@ -38,6 +42,8 @@ const browserBridge: AkashicBridge = {
     close: () => console.info('[mock] close'),
     hide: () => console.info('[mock] hide (tray)'),
     show: () => console.info('[mock] show'),
+    setGameRunning: () => {},
+    onTrayStopGame: () => () => {},
     onMaximized: () => () => {},
   },
   settings: {
