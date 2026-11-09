@@ -12,13 +12,20 @@ export const MODPACK_SOURCE = {
   prefix: 'TEOF-',
 } as const
 
-export const RELEASES_URL = `https://api.github.com/repos/${MODPACK_SOURCE.owner}/${MODPACK_SOURCE.repo}/releases?per_page=100`
+/**
+ * Lista de releases no formato da API do GitHub. `VITE_MODPACK_RELEASES_URL` (no build)
+ * troca a fonte — útil para um canal de testes ou para testar com um pack local.
+ */
+export const RELEASES_URL =
+  import.meta.env.VITE_MODPACK_RELEASES_URL || `https://api.github.com/repos/${MODPACK_SOURCE.owner}/${MODPACK_SOURCE.repo}/releases?per_page=100`
 export const RELEASES_PAGE = `https://github.com/${MODPACK_SOURCE.owner}/${MODPACK_SOURCE.repo}/releases`
 
 export interface ModpackAsset {
   name: string
   size: number // bytes
   url: string
+  /** SHA-256 que o GitHub publica para o arquivo (campo `digest`), quando disponível. */
+  sha256?: string
 }
 
 export interface ModpackRelease {
@@ -37,6 +44,7 @@ interface GhAsset {
   name: string
   size: number
   browser_download_url: string
+  digest?: string | null // "sha256:..."
 }
 interface GhRelease {
   tag_name: string
@@ -72,7 +80,9 @@ export function compareVersions(a: number[] | string, b: number[] | string) {
 export function pickAsset(assets: GhAsset[]): ModpackAsset | null {
   const zips = assets.filter((a) => a.name.toLowerCase().endsWith('.zip'))
   const best = zips.sort((x, y) => y.size - x.size)[0]
-  return best ? { name: best.name, size: best.size, url: best.browser_download_url } : null
+  if (!best) return null
+  const sha256 = best.digest?.startsWith('sha256:') ? best.digest.slice(7) : undefined
+  return { name: best.name, size: best.size, url: best.browser_download_url, ...(sha256 ? { sha256 } : {}) }
 }
 
 /** Converte a resposta da API em versões TEOF-, da mais nova para a mais antiga. */

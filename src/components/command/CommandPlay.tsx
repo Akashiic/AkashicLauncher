@@ -44,7 +44,7 @@ const SERVER = {
  * brasas no hover e ligação direta com o portal da cena (acende, carrega e pulsa).
  */
 export function CommandPlay() {
-  const { phase, progress, speed, eta, filesDone, filesTotal, bytesDone, bytesTotal, currentFile, play, stop, cancel, sessionStart } = useLaunch()
+  const { phase, stage, progress, speed, eta, filesDone, filesTotal, bytesDone, bytesTotal, currentFile, play, stop, cancel, sessionStart } = useLaunch()
   const mp = useModpackState()
   const installedVersion = useSettings((st) => st.settings.modpackVersion)
   const { state: server, players, maxPlayers, cycleState } = useServer()
@@ -97,8 +97,11 @@ export function CommandPlay() {
   })()
 
   const busyLine =
-    phase === 'verifying' ? `${filesDone}/${filesTotal} arquivos verificados · clique para cancelar`
-    : phase === 'downloading' ? `${bytesDone.toFixed(0)}/${bytesTotal.toFixed(0)} MB · ${speed.toFixed(1)} MB/s · restam ${fmtTime(eta)}`
+    // com bytes a baixar mostra MB e velocidade; só conferindo, mostra arquivos
+    phase === 'verifying' || phase === 'downloading'
+      ? bytesTotal > 0.5
+        ? `${stage ? stage + ' · ' : ''}${bytesDone.toFixed(0)}/${bytesTotal.toFixed(0)} MB · ${speed.toFixed(1)} MB/s${eta > 0 ? ` · restam ${fmtTime(eta)}` : ''}`
+        : `${stage ? stage + ' · ' : ''}${filesDone}/${filesTotal} arquivos · clique para cancelar`
     : phase === 'launching' ? currentFile || 'Carregando mods…'
     : phase === 'running' ? `Sessão ${elapsed} · clique para fechar o jogo`
     : phase === 'stopping' ? 'Encerrando o jogo…'

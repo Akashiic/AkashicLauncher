@@ -2,8 +2,7 @@
 
 > **Entre no Proibido.**
 
-Launcher desktop (UI/UX + áudio + estado) para o servidor **Minecraft 1.7.10 Modded**.
-Download de arquivos e execução do Java são **simulados** — toda a experiência é testável.
+Launcher desktop do servidor **Minecraft 1.7.10 Modded**. No app desktop o JOGAR é **real**: baixa o Java, o Minecraft 1.7.10, o modpack TEOF- do GitHub e o Forge, e abre o jogo (núcleo em Rust, `src-tauri/src/game`). No navegador o mesmo fluxo é simulado, para testar a interface.
 
 **Stack:** Tauri 2 + Rust (processo nativo) · React 18 + TypeScript · Vite · Tailwind CSS · Framer Motion · Three.js · Zustand · Web Audio API.
 
@@ -39,6 +38,7 @@ Requisitos para o app desktop: [Rust](https://rustup.rs) e, no Windows, o WebVie
 
 ```
 src-tauri/src/lib.rs     processo nativo em Rust: bandeja, settings.json, pastas/links, instância única
+src-tauri/src/game/      JOGAR real: Java, Minecraft 1.7.10, modpack, Forge, processo do jogo (+ testes)
 src-tauri/tauri.conf.json janela 1000×620 sem moldura, ícones, instaladores
 src-tauri/capabilities/  permissões da janela (só o necessário)
 src/lib/bridge.ts        ponte interface ↔ Rust (invoke/eventos), com fallback para o navegador
@@ -97,19 +97,37 @@ aberração cromática, vinheta e granulado).
 
 Arquivos antigos ou corrompidos são mesclados com os padrões, sem quebrar o app.
 
-## Simuladores (para testar)
+## JOGAR: do clique ao Minecraft aberto (Rust)
+
+Tudo em `src-tauri/src/game/`; a interface só recebe eventos (`launch:progress` a cada 120 ms, `launch:logs` em lotes, `game:window`, `game:exit`).
+
+| Etapa | O que acontece | Arquivo |
+|---|---|---|
+| 1. Java | Zulu 8u512 da Azul no 1º uso, **SHA-256 fixado** no código; extraído em `runtime/zulu-8u512` | `java.rs` |
+| 2. Minecraft 1.7.10 | JSON da versão (SHA-1 fixado), client.jar, bibliotecas, nativos LWJGL 2.9.1, assets (16 downloads paralelos, cada arquivo conferido pelo SHA-1) e o XML de log da Mojang que corrige o **Log4Shell** | `minecraft.rs` |
+| 3. Modpack | baixa o `.zip` do release TEOF- com **retomada**, confere tamanho e o SHA-256 que o GitHub publica (`digest`), remove os arquivos da versão anterior que saíram do pack (ex.: mods antigos) e extrai. **Mantém** `options.txt`, `optionsof.txt`, `servers.dat` e `saves/` do jogador. Aceita o .zip com ou sem uma pasta raiz | `modpack.rs` |
+| 4. Forge | formato Technic: usa o `bin/modpack.jar` do pack (e o `version.json` dele); sem ele, o Forge 10.13.4.1614 oficial (SHA-1 fixado). Bibliotecas (Scala, LaunchWrapper...) dos repositórios Forge/Mojang, com o Maven Central de reserva | `forge.rs` |
+| 5. Jogo | extrai os nativos, monta o classpath (Forge vence duplicadas), inicia `javaw` sem console, converte o log XML em linhas legíveis, detecta a janela do jogo (vai para a bandeja) e o fechamento (o launcher volta e procura atualizações) | `launch.rs` |
+
+- **2ª vez em diante:** só confere tamanhos (rápido). **Verificar arquivos** (Configurações → Desempenho → Java) confere o SHA-1 de tudo e baixa de novo o que estiver corrompido.
+- **Pastas** (Windows: `%APPDATA%\com.forbiddenseries.launcher\`): `minecraft/` (bibliotecas, assets), `instances/forbidden/` (a pasta do jogo: mods, config, saves), `runtime/` (Java).
+- **Logs do jogo:** janela de logs do launcher e `instances/forbidden/logs/launcher-latest.log`. Se o jogo fechar com erro, o aviso mostra o crash report.
+- **Contas offline** entram com UUID offline e token aleatório. O login Microsoft ainda é simulado (veja Perfis).
+- **Testar com um pack local:** gere o build com `VITE_MODPACK_RELEASES_URL=http://localhost:8765/releases.json` (lista no formato da API do GitHub). Assim foi validado: Java baixado, 1.7.10 + Forge até o menu principal, atualização 9.0 → 9.1 (mod removido, `options.txt` do jogador mantido), fechar o jogo pelo launcher e verificação com arquivo corrompido.
+
+## Simuladores (só no navegador)
 
 - **JOGAR:** Verificando → (Baixando, sempre na 1ª vez) → Iniciando → Em execução. Clique durante a verificação/download para cancelar; em execução, clique para fechar o jogo.
 - **Status do servidor:** clique na pílula "Online" para alternar entre Online / Manutenção / Offline (bloqueia o botão JOGAR).
 - **Logs:** botão de terminal na Action Bar ou em Configurações → Jogo & Vídeo.
 
-## Java (Azul Zulu 8u512, incluso)
+## Java (Azul Zulu 8u512)
 
 O launcher usa o próprio Java: **Azul Zulu · Java 8 (1.8.0_512), 64-bit**. Tudo sobre o runtime fica em `src/lib/java.ts` (fonte única).
 
 - Padrão: `javaMode: 'bundled'`. Configurações antigas com `'auto'` migram automaticamente para o Zulu.
 - "Usar outro Java (avançado)" (`'custom'`) aceita um caminho próprio; sem caminho, o Zulu continua sendo usado.
-- **Para a implementação real:** empacotar o JRE do Zulu 8u512 de cada sistema em `runtime/zulu-8u512/` (via `bundle.resources` do Tauri) ou baixá-lo do site da Azul no primeiro uso, sempre conferindo o checksum (SHA-256) antes de extrair. No Windows, usar `bin/javaw.exe` (sem console); no Linux/macOS, `bin/java`.
+- O Rust baixa o pacote oficial da Azul no primeiro JOGAR (~40 MB) e confere o SHA-256 fixado em `src-tauri/src/game/java.rs` (Windows x64, Linux x64, macOS x64 — no Mac com Apple Silicon roda via Rosetta, porque o LWJGL 2.9.1 não tem nativos ARM). Para mandar o Java dentro do instalador, coloque-o em `runtime/zulu-8u512/` via `bundle.resources`: o launcher usa esse primeiro.
 
 ## Modpack: versões TEOF- do GitHub
 
@@ -124,11 +142,11 @@ As versões vêm **de verdade** dos releases de [Akashiic/Technic-Forbidden](htt
 - O JOGAR vira **INSTALAR** (nada instalado) ou **ATUALIZAR** (versão nova), com "TEOF-5.3 → TEOF-5.4 · tamanho" embaixo.
 - Cache com ETag: consultas repetidas recebem `304` e não gastam o limite de 60/hora da API sem login. Sem conexão, usa a última lista salva e joga com a versão instalada.
 - Código: `src/lib/modpack.ts` (busca/ordenação), `src/store/modpack.ts` (estado), `src/components/modpack/ModpackVersions.tsx` (painel).
-- **Ainda simulado:** a transferência do `.zip` e a extração. Na implementação real, baixar `asset.url` em Rust (comando do Tauri, com retomada e progresso por evento), conferir o tamanho/hash e extrair na pasta do jogo antes de marcar a versão como instalada.
+- **Instalação real** no app desktop (veja "JOGAR: do clique ao Minecraft aberto"). A versão instalada de verdade fica em `instances/forbidden/.forbidden/pack.json` e manda sobre a salva nas configurações.
 
 ## Bandeja do sistema
 
-Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone em `src-tauri/icons/tray@2x.png` (olho com moldura pixelada da marca). Abrir o launcher de novo com ele na bandeja só traz a janela para frente (instância única). Na implementação real, o Rust deve iniciar o Java, mostrar a janela e avisar a interface quando o processo do jogo terminar.
+Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone em `src-tauri/icons/tray@2x.png` (olho com moldura pixelada da marca). Abrir o launcher de novo com ele na bandeja só traz a janela para frente (instância única). "Fechar o jogo" encerra o processo do Java direto no Rust.
 
 ## Flags da JVM
 
@@ -169,6 +187,7 @@ Clique no jogador (rodapé da coluna) para abrir o painel **Skin**: boneco 3D (a
 
 ## Onde plugar a lógica real
 
-- `src/store/launch.ts` → troque `verify` / `download` / `launch` por comandos Rust reais via `invoke` (o executável Java vem de `src/lib/java.ts`).
+- ~~`src/store/launch.ts`~~ → feito: JOGAR real em Rust (`src-tauri/src/game`).
+- Login Microsoft real (veja Perfis) — hoje as contas Microsoft entram como offline.
 - `src/store/server.ts` → troque `tick()` por um Server List Ping de verdade.
 - `src/lib/content.ts` → notícias e changelog vindos da sua API.

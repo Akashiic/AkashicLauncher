@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/Button'
 import { Section } from './SettingRow'
 import { toast } from '@/store/toasts'
 import { audio } from '@/audio/AudioManager'
+import { bridge } from '@/lib/bridge'
+import { useLaunch } from '@/store/launch'
 import { cn, EASE } from '@/lib/cn'
 import { TONE_VAR } from '@/theme'
 
@@ -31,8 +33,12 @@ export function PerformanceTab() {
   const v = ramVerdict(s.memoryGb)
   const systemRam = 16
 
-  // verificação do runtime incluso (simulada)
+  // app desktop: confere de verdade (SHA-1) os arquivos do Minecraft e do Forge
   const checkRuntime = () => {
+    if (bridge.game) {
+      useLaunch.getState().verifyOnly()
+      return
+    }
     setChecking(true)
     window.setTimeout(() => {
       setChecking(false)
@@ -96,7 +102,7 @@ export function PerformanceTab() {
         </div>
       </Section>
 
-      <Section title="Java" desc="O launcher traz o próprio Java 8, o mesmo para todos os jogadores. Você não precisa instalar nada.">
+      <Section title="Java" desc="O launcher baixa e cuida do próprio Java 8 (o mesmo para todos os jogadores, conferido pelo SHA-256 oficial). Você não precisa instalar nada.">
         <div className="flex items-center gap-4 rounded-xl border border-success/30 bg-bg/70 px-4 py-3.5">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-accent bg-brand text-fg">
             <Coffee size={20} />
@@ -109,7 +115,7 @@ export function PerformanceTab() {
               <span className="rounded border border-line px-1.5 font-mono text-[11px] text-muted">{JAVA_RUNTIME.version}</span>
               <span className="rounded border border-line px-1.5 text-[11px] text-muted">{JAVA_RUNTIME.arch}</span>
               <span className={cn('flex items-center gap-1 text-xs', s.javaMode === 'bundled' ? 'text-success' : 'text-subtle')}>
-                <CheckCircle2 size={12} /> {s.javaMode === 'bundled' ? 'Em uso · incluso no launcher' : 'Incluso no launcher (não está em uso)'}
+                <CheckCircle2 size={12} /> {s.javaMode === 'bundled' ? 'Em uso · gerenciado pelo launcher' : 'Gerenciado pelo launcher (não está em uso)'}
               </span>
             </div>
             <div className="mt-1 truncate font-mono text-[11px] text-subtle" title={JAVA_RUNTIME.executable}>
@@ -117,7 +123,7 @@ export function PerformanceTab() {
             </div>
           </div>
           <Button size="sm" icon={<ShieldCheck size={13} className={cn(checking && 'animate-pulse')} />} onClick={checkRuntime} disabled={checking}>
-            {checking ? 'Verificando…' : 'Verificar'}
+            {checking ? 'Verificando…' : bridge.game ? 'Verificar arquivos' : 'Verificar'}
           </Button>
         </div>
 
@@ -142,7 +148,7 @@ export function PerformanceTab() {
                       aria-label="Caminho do Java"
                       className="h-10 flex-1 rounded-xl border border-line bg-bg/70 px-3 font-mono text-xs text-fg placeholder:text-subtle focus:border-accent focus:outline-none"
                     />
-                    <Button size="md" icon={<FolderSearch size={14} />} onClick={() => toast({ kind: 'info', title: 'Seletor de arquivo', body: 'Abriria o diálogo nativo (mock).' })}>
+                    <Button size="md" icon={<FolderSearch size={14} />} onClick={() => toast({ kind: 'info', title: 'Caminho do Java', body: 'Cole no campo o caminho completo do javaw.exe (Java 8).' })}>
                       Procurar
                     </Button>
                   </div>

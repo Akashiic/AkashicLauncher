@@ -4,6 +4,8 @@
 //! partes nativas: bandeja, configurações em disco e abertura de pastas/links.
 //! É também o lugar da lógica pesada que vem depois (download, extração, Java).
 
+mod game;
+
 use std::{fs, path::PathBuf};
 
 use tauri::{
@@ -72,7 +74,7 @@ fn settings_path(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn open_game_dir(app: AppHandle) -> Result<String, String> {
-    let dir = data_dir(&app)?.join(".minecraft");
+    let dir = game::paths(&app).map_err(|e| e.to_string())?.instance;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.display().to_string();
     app.opener()
@@ -123,7 +125,17 @@ fn create_tray(app: &AppHandle) -> tauri::Result<Tray> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_launcher(app),
             "stop-game" => {
-                let _ = app.emit("tray:stop-game", ());
+                // fecha o processo do jogo direto (a interface recebe `game:exit`)
+                let state = app.state::<game::GameState>();
+                let tx = state.kill.lock().unwrap().take();
+                match tx {
+                    Some(tx) => {
+                        let _ = tx.send(());
+                    }
+                    None => {
+                        let _ = app.emit("tray:stop-game", ());
+                    }
+                }
             }
             "quit" => app.exit(0),
             _ => {}
@@ -144,6 +156,7 @@ pub fn run() {
         // abrir o launcher de novo só traz a janela existente para frente
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_launcher(app)))
         .plugin(tauri_plugin_opener::init())
+        .manage(game::GameState::default())
         .setup(|app| {
             let tray = match create_tray(app.handle()) {
                 Ok(t) => Some(t),
@@ -161,7 +174,12 @@ pub fn run() {
             settings_path,
             open_game_dir,
             open_external,
-            set_game_running
+            set_game_running,
+            game::game_play,
+            game::game_cancel,
+            game::game_stop,
+            game::game_installed,
+            game::game_verify
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o launcher");

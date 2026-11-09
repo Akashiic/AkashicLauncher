@@ -23,6 +23,7 @@ import { audio } from '@/audio/AudioManager'
 import { bridge } from '@/lib/bridge'
 import { Logo } from '@/components/ui/Logo'
 import { revealWindow } from '@/lib/desktop'
+import { parseTag } from '@/lib/modpack'
 import { cn, EASE } from '@/lib/cn'
 
 const PANELS = {
@@ -68,6 +69,15 @@ export default function App() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [checkModpack])
+
+  // app desktop: a versão instalada de verdade (pasta do jogo) manda sobre a salva
+  useEffect(() => {
+    if (!hydrated || !bridge.game) return
+    void bridge.game.installed().then((tag) => {
+      const v = tag ? (parseTag(tag)?.version ?? null) : null
+      if (useSettings.getState().settings.modpackVersion !== v) useSettings.getState().update({ modpackVersion: v })
+    })
+  }, [hydrated])
 
   // "Fechar o jogo" no menu da bandeja
   useEffect(() => bridge.window.onTrayStopGame(() => useLaunch.getState().stop()), [])

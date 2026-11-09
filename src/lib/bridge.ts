@@ -25,6 +25,46 @@ export interface AkashicBridge {
     path(): Promise<string>
   }
   shell: { openGameDir(): Promise<string>; openExternal(url: string): Promise<void> }
+  /** Núcleo do jogo em Rust (só no app desktop). */
+  game?: GameApi
+}
+
+export interface PlayRequest {
+  account: { username: string; uuid: string; type: 'offline' | 'microsoft' }
+  memoryGb: number
+  jvmArgs: string[]
+  javaPath: string | null
+  pack: { tag: string; url: string; size: number; sha256?: string } | null
+}
+
+/** Retrato do progresso emitido pelo Rust (`launch:progress`). */
+export interface NativeProgress {
+  phase: 'verifying' | 'downloading' | 'launching'
+  stage: string
+  filesDone: number
+  filesTotal: number
+  bytesDone: number
+  bytesTotal: number
+  progress: number
+  speed: number // bytes/s
+  current: string
+}
+
+export interface GameEvents {
+  'launch:progress': NativeProgress
+  'launch:logs': string[]
+  'launch:pack-installed': string
+  'game:window': null
+  'game:exit': { code: number | null; crashReport: string | null }
+}
+
+export interface GameApi {
+  play(req: PlayRequest): Promise<void>
+  cancel(): Promise<void>
+  stop(): Promise<boolean>
+  verify(): Promise<{ checked: number; repaired: number }>
+  installed(): Promise<string | null>
+  on<K extends keyof GameEvents>(event: K, cb: (payload: GameEvents[K]) => void): () => void
 }
 
 const LS_KEY = 'akashic.settings.v1'
@@ -99,6 +139,17 @@ function tauriBridge(): AkashicBridge {
     shell: {
       openGameDir: () => invoke<string>('open_game_dir'),
       openExternal: (url) => invoke<void>('open_external', { url }),
+    },
+    game: {
+      play: (req) => invoke<void>('game_play', { req }),
+      cancel: () => invoke<void>('game_cancel'),
+      stop: () => invoke<boolean>('game_stop'),
+      verify: () => invoke('game_verify'),
+      installed: () => invoke<string | null>('game_installed'),
+      on: (event, cb) => {
+        const off = listen(event, (e) => cb(e.payload as never))
+        return () => void off.then((f) => f())
+      },
     },
   }
 }

@@ -4,19 +4,23 @@ import { toast } from '@/store/toasts'
 import { activeAccount, useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
-import { formatMB, type ModpackRelease } from '@/lib/modpack'
+import { formatMB, parseTag, type ModpackRelease } from '@/lib/modpack'
 import { normalizeFlags } from '@/lib/jvm'
 import { modpackState, useModpack } from '@/store/modpack'
 
 /**
- * Ciclo de vida do jogo. A versão do modpack vem de verdade dos releases TEOF- do
- * GitHub (src/store/modpack.ts); a TRANSFERÊNCIA do arquivo e o processo Java
- * ainda são simulados — nenhum arquivo é gravado e nada é executado.
+ * Ciclo de vida do jogo.
+ * - No app desktop: tudo é real e roda em Rust (src-tauri/src/game): Java, Minecraft
+ *   1.7.10, modpack TEOF- do GitHub, Forge e o processo do jogo. Aqui só ligamos os
+ *   eventos à interface.
+ * - No navegador: o mesmo fluxo é simulado, para testar a interface.
  */
 export type LaunchPhase = 'ready' | 'verifying' | 'downloading' | 'launching' | 'running' | 'stopping'
 
 interface LaunchStore {
   phase: LaunchPhase
+  /** Etapa atual em texto ("Minecraft 1.7.10", "Modpack TEOF-5.3"...). */
+  stage: string
   progress: number
   speed: number // MB/s
   currentFile: string
@@ -83,6 +87,10 @@ const line = (s: string) => `[${ts()}] ${s}`
 let timer: number | undefined
 let runTimer: number | undefined
 let hideTimer: number | undefined
+
+let unlisten: (() => void)[] = []
+
+const MB = 1024 * 1024
 
 const clear = () => {
   window.clearInterval(timer)
@@ -176,7 +184,9 @@ export const useLaunch = create<LaunchStore>((set, get) => {
           ? 'O launcher foi para a bandeja do sistema. Ele volta quando o jogo fechar.'
           : 'No app, o launcher iria para a bandeja do sistema agora (no navegador isso não existe).'
         : behavior === 'close'
-          ? 'O launcher seria fechado agora (simulado para teste).'
+          ? bridge.isDesktop
+            ? 'O launcher vai fechar; o jogo continua aberto.'
+            : 'O launcher seria fechado agora (simulado para teste).'
           : 'O launcher permanece aberto enquanto você joga.'
     toast({ kind: 'success', title: 'Minecraft 1.7.10 em execução', body: msg })
     if (behavior === 'tray') {
@@ -189,18 +199,133 @@ export const useLaunch = create<LaunchStore>((set, get) => {
         }
       }, 1600)
     }
-    runTimer = window.setInterval(() => log(RUNTIME_LOGS[Math.floor(Math.random() * RUNTIME_LOGS.length)]), 1600)
+    if (behavior === 'close' && bridge.isDesktop) {
+      window.clearTimeout(hideTimer)
+      hideTimer = window.setTimeout(() => bridge.window.close(), 1600)
+    }
+    if (!bridge.game) runTimer = window.setInterval(() => log(RUNTIME_LOGS[Math.floor(Math.random() * RUNTIME_LOGS.length)]), 1600)
+  }
+
+  // ---------------------------------------------------------------------------
+  // App desktop: núcleo real em Rust
+  // ---------------------------------------------------------------------------
+
+  const appendLogs = (lines: string[]) => {
+    const t = ts()
+    set({ logs: [...get().logs, ...lines.map((l) => (l.startsWith('[') && /^\[\d\d:\d\d:\d\d\]/.test(l) ? l : `[${t}] ${l}`))].slice(-600) })
+  }
+
+  /** Liga os eventos do Rust ao estado (uma vez). */
+  const listenNative = () => {
+    const game = bridge.game
+    if (!game || unlisten.length) return
+    unlisten = [
+      game.on('launch:progress', (p) => {
+        const phase = get().phase
+        if (phase !== 'verifying' && phase !== 'downloading' && phase !== 'launching') return
+        const speed = p.speed / MB
+        const left = (p.bytesTotal - p.bytesDone) / MB
+        set({
+          phase: p.phase,
+          stage: p.stage,
+          progress: p.progress,
+          filesDone: p.filesDone,
+          filesTotal: p.filesTotal,
+          bytesDone: p.bytesDone / MB,
+          bytesTotal: p.bytesTotal / MB,
+          speed,
+          eta: speed > 0.05 ? left / speed : 0,
+          currentFile: p.current,
+        })
+      }),
+      game.on('launch:logs', appendLogs),
+      game.on('launch:pack-installed', (tag) => {
+        const v = parseTag(tag)?.version
+        if (v && useSettings.getState().settings.modpackVersion !== v) useSettings.getState().update({ modpackVersion: v })
+      }),
+      game.on('game:window', () => {
+        if (get().phase === 'launching') running()
+      }),
+      game.on('game:exit', ({ code, crashReport }) => {
+        const p = get().phase
+        if (p !== 'running' && p !== 'launching' && p !== 'stopping') return
+        window.clearTimeout(hideTimer)
+        set({ phase: 'stopping' })
+        log(`[Launcher] O jogo fechou (código ${code ?? '—'}).`)
+        bridge.window.setGameRunning(false)
+        bridge.window.show() // volta da bandeja
+        if (code !== null && code !== 0 && p !== 'stopping') {
+          audio.play('error')
+          toast({
+            kind: 'error',
+            title: 'O Minecraft fechou com erro',
+            body: crashReport ? `Relatório de erro salvo em ${crashReport}` : `Código de saída ${code}. Veja os logs para detalhes.`,
+          }, 9000)
+        }
+        window.setTimeout(backToReady, 700)
+      }),
+    ]
+  }
+
+  const accountForLaunch = () => {
+    const acc = activeAccount(useSettings.getState().settings)
+    return acc ? { username: acc.username, uuid: acc.uuid, type: acc.type } : null
+  }
+
+  const playNative = async () => {
+    const game = bridge.game!
+    listenNative()
+    const account = accountForLaunch()
+    if (!account) {
+      toast({ kind: 'warning', title: 'Crie um perfil antes de jogar' })
+      return
+    }
+    audio.play('play')
+    audio.stopBgm(3)
+    audio.stopAmbience(2.5)
+    set({ phase: 'verifying', stage: 'Preparando', progress: 0, filesDone: 0, filesTotal: 0, bytesDone: 0, bytesTotal: 0, speed: 0, eta: 0, currentFile: '' })
+    // versão mais nova do modpack: releases TEOF- do GitHub
+    const mp = useModpack.getState()
+    if (mp.status !== 'ready') await mp.check()
+    const { latest, fromCache } = useModpack.getState()
+    if (fromCache) log('[Launcher] Sem conexão com o GitHub — usando a última lista de versões salva.')
+    const pack = latest?.asset ? { tag: latest.tag, url: latest.asset.url, size: latest.asset.size, ...(latest.asset.sha256 ? { sha256: latest.asset.sha256 } : {}) } : null
+    if (latest && !latest.asset) log(`[Launcher] O release ${latest.tag} não tem .zip anexado.`)
+    const { settings } = useSettings.getState()
+    const custom = settings.javaMode === 'custom' && settings.javaPath.trim() ? settings.javaPath.trim() : null
+    try {
+      await game.play({
+        account,
+        memoryGb: settings.memoryGb,
+        jvmArgs: normalizeFlags(settings.jvmArgs).split(/\s+/).filter(Boolean),
+        javaPath: custom,
+        pack,
+      })
+      const now = get().phase
+      if (now === 'verifying' || now === 'downloading') set({ phase: 'launching' })
+    } catch (e) {
+      const msg = String(e)
+      if (msg === 'cancelado') {
+        log('[Launcher] Operação cancelada pelo usuário.')
+        toast({ kind: 'info', title: 'Operação cancelada' })
+      } else {
+        audio.play('error')
+        toast({ kind: 'error', title: 'Não foi possível abrir o jogo', body: msg }, 10000)
+      }
+      backToReady()
+    }
   }
 
   const backToReady = () => {
     clear()
-    set({ phase: 'ready', progress: 0, speed: 0, currentFile: '' })
+    set({ phase: 'ready', progress: 0, speed: 0, currentFile: '', stage: '' })
     audio.startBgm(3)
     audio.startAmbience(4)
   }
 
   return {
     phase: 'ready',
+    stage: '',
     progress: 0,
     speed: 0,
     currentFile: '',
@@ -210,9 +335,10 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     bytesTotal: 0,
     eta: 0,
     sessionStart: 0,
-    logs: [line('[Launcher] Akashic Launcher pronto.')],
+    logs: [line('[Launcher] Forbidden Series Launcher pronto.')],
     play() {
       if (get().phase !== 'ready') return
+      if (bridge.game) return void playNative()
       audio.play('play')
       audio.stopBgm(3)
       audio.stopAmbience(2.5)
@@ -241,6 +367,21 @@ export const useLaunch = create<LaunchStore>((set, get) => {
         return
       }
       audio.play('click')
+      if (bridge.game) {
+        listenNative()
+        set({ phase: 'verifying', stage: 'Conferindo arquivos', progress: 0, filesDone: 0, filesTotal: 0, bytesDone: 0, bytesTotal: 0 })
+        bridge.game
+          .verify()
+          .then(({ checked, repaired }) => {
+            audio.play('success')
+            toast({ kind: 'success', title: 'Arquivos conferidos', body: repaired ? `${checked} arquivos conferidos; ${repaired === 1 ? '1 foi baixado' : `${repaired} foram baixados`} de novo.` : `${checked} arquivos conferidos, nenhum corrompido.` })
+          })
+          .catch((e) => {
+            if (String(e) !== 'cancelado') toast({ kind: 'error', title: 'Falha na verificação', body: String(e) })
+          })
+          .finally(() => backToReady())
+        return
+      }
       verify(() => {
         log('[Launcher] Integridade verificada: 1284/1284 OK.')
         audio.play('success')
@@ -252,13 +393,25 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     cancel() {
       const p = get().phase
       if (p !== 'verifying' && p !== 'downloading') return
-      log('[Launcher] Operação cancelada pelo usuário.')
       audio.play('close')
+      if (bridge.game) {
+        void bridge.game.cancel() // o Rust interrompe e a chamada termina com "cancelado"
+        return
+      }
+      log('[Launcher] Operação cancelada pelo usuário.')
       toast({ kind: 'info', title: 'Operação cancelada' })
       backToReady()
     },
     stop() {
       if (get().phase !== 'running' && get().phase !== 'launching') return
+      if (bridge.game) {
+        set({ phase: 'stopping' })
+        log('[Launcher] Fechando o jogo...')
+        void bridge.game.stop().then((ok) => {
+          if (!ok) window.setTimeout(backToReady, 300) // processo já tinha terminado
+        })
+        return
+      }
       clear()
       window.clearTimeout(hideTimer)
       set({ phase: 'stopping' })
