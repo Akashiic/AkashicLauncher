@@ -71,23 +71,15 @@ export function Intro() {
         animate={stage === 'reveal' ? { opacity: 0, scale: 1.08, filter: 'blur(10px)' } : { opacity: 1, scale: 1, filter: 'blur(0px)' }}
         transition={{ duration: 0.6, ease: EASE }}
       >
-        <motion.div initial={{ opacity: 0, scale: 0.7, filter: 'blur(14px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={{ duration: 0.9, ease: EASE }}>
-          <Logo size={92} />
+        <motion.div initial={{ opacity: 0, scale: 0.82, y: 10, filter: 'blur(16px)' }} animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 1.1, ease: EASE }}>
+          <Logo variant="full" size={340} pulse />
         </motion.div>
         <motion.span
           className="h-px bg-accent-strong shadow-glow-strong"
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 260, opacity: 1 }}
-          transition={{ delay: 0.45, duration: 0.8, ease: EASE }}
+          transition={{ delay: 0.6, duration: 0.8, ease: EASE }}
         />
-        <motion.span
-          className="font-display text-[46px] text-fg"
-          initial={{ opacity: 0, letterSpacing: '0.6em', filter: 'blur(8px)' }}
-          animate={{ opacity: 1, letterSpacing: '0.14em', filter: 'blur(0px)' }}
-          transition={{ delay: 0.6, duration: 1, ease: EASE }}
-        >
-          Forbidden Series
-        </motion.span>
         <motion.span className="label !text-accent-text" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1, duration: 0.6, ease: EASE }}>
           Entre no Proibido.
         </motion.span>

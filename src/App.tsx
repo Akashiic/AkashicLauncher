@@ -99,7 +99,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           {!hydrated ? (
             <motion.div key="boot" exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.6, ease: EASE }} className="relative flex flex-1 items-center justify-center">
-              <Logo size={72} />
+              <Logo variant="mark" size={84} pulse />
             </motion.div>
           ) : (
             <motion.div key="shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="relative flex min-h-0 flex-1">

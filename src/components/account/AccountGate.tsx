@@ -161,7 +161,7 @@ export function AccountGate() {
             )}
 
             <div className="flex items-center gap-4">
-              <Logo size={46} />
+              <Logo variant="mark" size={52} />
               <div>
                 <h2 id="gate-title" className="font-display text-[38px] text-fg">
                   {mandatory ? 'Crie seu perfil' : 'Adicionar perfil'}

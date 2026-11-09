@@ -58,6 +58,7 @@ function createWindow() {
     backgroundColor: '#0D0D0D', // pré-pintura da janela: espelha --bg-base de src/theme/tokens.css
     show: false,
     titleBarStyle: 'hidden',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

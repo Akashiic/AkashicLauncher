@@ -37,7 +37,7 @@ Todas as cores, fontes, raios e sombras ficam em **um único arquivo: `src/theme
 - `tailwind.config.js` só expõe classes que apontam para esses tokens (`bg-brand`, `text-muted`, `border-line`...). A paleta padrão do Tailwind está desativada, então não dá para usar cores fora do tema.
 - `src/theme/index.ts` lê os mesmos tokens para Canvas/SVG (partículas, avatar).
 - Fontes empacotadas offline via `@fontsource`: **League Gothic** (títulos e botão JOGAR, sempre em caixa alta) e **Oswald** 400/600/700 (texto, menus).
-- Logo: coloque `public/brand/logo.png` (veja `public/brand/README.md`).
+- Marca oficial em `public/brand/` (símbolo, nome em linha e logo completo) e ícones em `electron/assets/` — veja `public/brand/README.md`.
 - Única exceção: `backgroundColor` em `electron/main.cjs` (cor da janela antes do React carregar) espelha `--bg-base`.
 
 ## Layout: "B · Coluna de Comando"
@@ -107,7 +107,7 @@ As versões vêm **de verdade** dos releases de [Akashiic/Technic-Forbidden](htt
 
 ## Bandeja do sistema
 
-Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone provisório em `electron/assets/tray.png` (trocar pelo logo). Na implementação real, o processo principal deve chamar `win.show()` e avisar o renderer quando o processo do Java terminar.
+Ao abrir o jogo (comportamento padrão "Minimizar para a bandeja"), o launcher se esconde na bandeja e volta sozinho quando o jogo fecha. Menu do ícone: **Abrir launcher**, **Fechar o jogo** e **Sair**. Ícone em `electron/assets/tray.png` (olho com moldura pixelada da marca). Na implementação real, o processo principal deve chamar `win.show()` e avisar o renderer quando o processo do Java terminar.
 
 ## Flags da JVM
 

@@ -78,9 +78,9 @@ export function CommandColumn() {
       transition={{ duration: 0.8, ease: EASE }}
       className="panel relative z-30 flex h-full w-[288px] shrink-0 flex-col border-y-0 border-l-0 !border-r-accent/40 px-[18px] pb-4 pt-[22px] shadow-[1px_0_24px_-8px_var(--accent)]"
     >
-      <div className="drag flex items-center gap-3 px-1">
-        <Logo size={40} />
-        <span className="font-display text-[26px] text-fg">Forbidden Series</span>
+      <div className="drag flex items-center gap-2.5 px-1">
+        <Logo variant="mark" size={38} pulse />
+        <Logo variant="wordmark" size={19} />
       </div>
 
       <nav className="mt-6 flex flex-col gap-0.5" aria-label="Navegação principal">
