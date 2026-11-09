@@ -5,6 +5,7 @@
 //! É também o lugar da lógica pesada que vem depois (download, extração, Java).
 
 mod game;
+mod updater;
 
 use std::{fs, path::PathBuf};
 
@@ -156,6 +157,8 @@ pub fn run() {
         // abrir o launcher de novo só traz a janela existente para frente
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_launcher(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate::default())
         .manage(game::GameState::default())
         .setup(|app| {
             let tray = match create_tray(app.handle()) {
@@ -180,7 +183,9 @@ pub fn run() {
             game::game_stop,
             game::game_installed,
             game::game_verify,
-            game::game_update_plan
+            game::game_update_plan,
+            updater::launcher_check_update,
+            updater::launcher_install_update
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o launcher");

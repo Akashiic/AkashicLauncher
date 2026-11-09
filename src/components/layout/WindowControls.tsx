@@ -4,6 +4,7 @@ import { bridge } from '@/lib/bridge'
 import { audio } from '@/audio/AudioManager'
 import { useSettings } from '@/store/settings'
 import { cn } from '@/lib/cn'
+import { LauncherUpdate } from './LauncherUpdate'
 
 function SaveIndicator() {
   const state = useSettings((s) => s.saveState)
@@ -29,6 +30,7 @@ export function WindowControls() {
   const btn = 'no-drag grid h-9 w-11 place-items-center text-muted transition-colors duration-200'
   return (
     <div className="drag absolute inset-x-0 top-0 z-40 flex h-9 items-center justify-end">
+      <LauncherUpdate />
       <SaveIndicator />
       <button
         aria-label="Minimizar"

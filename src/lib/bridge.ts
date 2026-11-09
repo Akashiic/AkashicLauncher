@@ -27,6 +27,21 @@ export interface AkashicBridge {
   shell: { openGameDir(): Promise<string>; openExternal(url: string): Promise<void> }
   /** Núcleo do jogo em Rust (só no app desktop). */
   game?: GameApi
+  /** Atualização do próprio launcher (só no app desktop). */
+  updater?: LauncherUpdaterApi
+}
+
+export interface LauncherUpdateInfo {
+  version: string
+  current: string
+  notes: string | null
+}
+
+export interface LauncherUpdaterApi {
+  check(): Promise<LauncherUpdateInfo | null>
+  /** Baixa, instala e reinicia o launcher. */
+  install(): Promise<void>
+  onProgress(cb: (p: { downloaded: number; total: number | null }) => void): () => void
 }
 
 export interface PlayRequest {
@@ -167,6 +182,14 @@ function tauriBridge(): AkashicBridge {
       installed: () => invoke<string | null>('game_installed'),
       on: (event, cb) => {
         const off = listen(event, (e) => cb(e.payload as never))
+        return () => void off.then((f) => f())
+      },
+    },
+    updater: {
+      check: () => invoke<LauncherUpdateInfo | null>('launcher_check_update'),
+      install: () => invoke<void>('launcher_install_update'),
+      onProgress: (cb) => {
+        const off = listen<{ downloaded: number; total: number | null }>('launcher:update-progress', (e) => cb(e.payload))
         return () => void off.then((f) => f())
       },
     },

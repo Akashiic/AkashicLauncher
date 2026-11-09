@@ -1,0 +1,93 @@
+name: Release
+
+# Ao enviar uma tag vX.Y.Z (npm run release X.Y.Z), compila o instalador do
+# Windows e cria um RASCUNHO em Releases. Publicar o rascunho libera a versão:
+# os launchers instalados encontram o latest.json e se atualizam sozinhos.
+#
+# Atualização automática assinada (configure uma vez, veja o README):
+#   secret   TAURI_SIGNING_PRIVATE_KEY           chave privada
+#   secret   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  senha da chave (se tiver)
+#   variable TAURI_UPDATER_PUBKEY                chave pública
+# Sem elas, o instalador sai normalmente, só sem atualização automática.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Instalador do Windows
+    runs-on: windows-latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Dependências do npm
+        run: npm ci
+
+      - name: Confere se a tag bate com a versão do app
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$tag" != "$conf" ]; then
+            echo "::error::A tag v$tag não bate com a versão $conf do app. Rode: npm run release $tag"
+            exit 1
+          fi
+
+      - name: Atualização automática (assinatura)
+        id: signing
+        shell: bash
+        env:
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
+            node -e "
+              const pubkey = process.env.PUBKEY.trim();
+              const conf = { bundle: { createUpdaterArtifacts: true }, plugins: { updater: { pubkey } } };
+              require('fs').writeFileSync('src-tauri/updater.conf.json', JSON.stringify(conf));
+            "
+            echo "args=--config src-tauri/updater.conf.json" >> "$GITHUB_OUTPUT"
+            echo "Atualização automática: ligada."
+          else
+            echo "::warning::Sem TAURI_SIGNING_PRIVATE_KEY/TAURI_UPDATER_PUBKEY: o instalador sai sem atualização automática."
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compila e cria o rascunho do release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Forbidden Series Launcher v__VERSION__
+          releaseBody: |
+            Baixe **Forbidden.Series_x64-setup.exe** abaixo e instale. Na primeira vez que clicar em JOGAR, o launcher baixa o Java, o Minecraft 1.7.10 e a versão mais nova do modpack.
+
+            Quem já tem o launcher recebe esta versão sozinho (aviso no topo da janela).
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --bundles nsis ${{ steps.signing.outputs.args }}

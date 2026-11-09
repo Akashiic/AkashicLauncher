@@ -34,6 +34,43 @@ npm run build:desktop  # instaladores (Windows: NSIS/MSI) em src-tauri/target/re
 
 Requisitos para o app desktop: [Rust](https://rustup.rs) e, no Windows, o WebView2 (já vem no Windows 10/11 atualizado; o instalador baixa se faltar). No Linux: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`.
 
+## Releases do launcher (GitHub Actions)
+
+Duas Actions em `.github/workflows/`:
+
+- **CI** (`ci.yml`), a cada push e pull request: TypeScript + build da interface, `cargo clippy` sem avisos e testes do Rust.
+- **Release** (`release.yml`), ao enviar uma tag `vX.Y.Z`: compila o instalador do Windows (NSIS) e cria um **rascunho** em Releases com o instalador e o `latest.json` da atualização automática.
+
+### Publicar uma versão
+
+```bash
+npm run release 0.2.0
+```
+```bash
+git commit -am "Launcher v0.2.0"
+```
+```bash
+git tag v0.2.0
+```
+```bash
+git push --follow-tags
+```
+
+O script atualiza a versão em `package.json`, `tauri.conf.json` e `Cargo.toml`; a Action recusa a tag se a versão não bater. Quando o rascunho aparecer em Releases, revise e clique em **Publish release**: a partir daí os launchers instalados mostram "Launcher 0.2.0 disponível · atualizar" no topo (nunca com o jogo aberto) e se atualizam com um clique, conferindo a assinatura.
+
+### Configuração única da atualização automática
+
+1. Gere o par de chaves no seu PC e guarde a chave privada num lugar seguro (sem ela não dá para publicar atualizações):
+   ```bash
+   npx tauri signer generate -w ~/.tauri/forbidden-launcher.key
+   ```
+2. No GitHub, em **Settings → Secrets and variables → Actions**:
+   - aba *Secrets*: `TAURI_SIGNING_PRIVATE_KEY` = conteúdo do arquivo `forbidden-launcher.key`, e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = a senha escolhida;
+   - aba *Variables*: `TAURI_UPDATER_PUBKEY` = conteúdo do arquivo `forbidden-launcher.key.pub`.
+3. **Repositório público (ou Releases num repositório público):** os jogadores baixam o instalador e as atualizações sem login, então os Releases precisam ser públicos. O endereço lido pelo launcher fica em `plugins.updater.endpoints` no `tauri.conf.json`.
+
+Sem as chaves, a Action gera o instalador normalmente, só sem atualização automática (aparece um aviso no log da Action).
+
 ## Estrutura
 
 ```
@@ -43,6 +80,9 @@ src-tauri/tauri.conf.json janela 1000×620 sem moldura, ícones, instaladores
 src-tauri/capabilities/  permissões da janela (só o necessário)
 src/lib/bridge.ts        ponte interface ↔ Rust (invoke/eventos), com fallback para o navegador
 src/lib/desktop.ts       arrastar a janela pelas áreas .drag e mostrar a janela ao montar
+src-tauri/src/updater.rs atualização automática do launcher (assinada)
+.github/workflows/       CI e release (instalador do Windows + latest.json)
+scripts/release.mjs      npm run release X.Y.Z (versão nos três arquivos)
 src/audio/AudioManager   barramentos BGM / SFX / SBFX, síntese + suporte a arquivos
 src/store/               settings (persistente), launch (máquina de estados mock), server, ui, toasts
 src/components/fx        partículas em canvas + fundo em camadas com parallax
