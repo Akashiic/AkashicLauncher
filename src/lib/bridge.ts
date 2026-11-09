@@ -15,7 +15,7 @@ export interface AkashicBridge {
     save(data: unknown): Promise<string>
     path(): Promise<string>
   }
-  shell: { openGameDir(): Promise<string> }
+  shell: { openGameDir(): Promise<string>; openExternal(url: string): Promise<void> }
 }
 
 declare global {
@@ -59,7 +59,12 @@ const browserBridge: AkashicBridge = {
     },
     path: async () => `localStorage:${LS_KEY}`,
   },
-  shell: { openGameDir: async () => '~/.akashic/.minecraft (mock)' },
+  shell: {
+    openGameDir: async () => '~/.akashic/.minecraft (mock)',
+    openExternal: async (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
+  },
 }
 
 export const bridge: AkashicBridge = window.akashic ?? browserBridge

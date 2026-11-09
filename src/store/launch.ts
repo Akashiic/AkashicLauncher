@@ -4,10 +4,13 @@ import { toast } from '@/store/toasts'
 import { activeAccount, useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
+import { formatMB, type ModpackRelease } from '@/lib/modpack'
+import { modpackState, useModpack } from '@/store/modpack'
 
 /**
- * Simulador do ciclo de vida do jogo. Nenhum arquivo é baixado e nenhum
- * processo Java é iniciado — apenas a experiência é reproduzida.
+ * Ciclo de vida do jogo. A versão do modpack vem de verdade dos releases TEOF- do
+ * GitHub (src/store/modpack.ts); a TRANSFERÊNCIA do arquivo e o processo Java
+ * ainda são simulados — nenhum arquivo é gravado e nada é executado.
  */
 export type LaunchPhase = 'ready' | 'verifying' | 'downloading' | 'launching' | 'running' | 'stopping'
 
@@ -78,7 +81,6 @@ const line = (s: string) => `[${ts()}] ${s}`
 
 let timer: number | undefined
 let runTimer: number | undefined
-let firstRun = true
 
 const clear = () => {
   window.clearInterval(timer)
@@ -114,30 +116,27 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     }, 50)
   }
 
-  const download = (then: () => void) => {
-    const files = 7 + Math.floor(Math.random() * 12)
-    const totalMB = 38 + Math.random() * 120
-    set({ phase: 'downloading', progress: 0, filesDone: 0, filesTotal: files, bytesDone: 0, bytesTotal: totalMB, speed: 0 })
-    log(`[Launcher] ${files} arquivos desatualizados — baixando ${totalMB.toFixed(1)} MB`)
+  /** Baixa (simulado) o .zip do release do modpack e marca a versão como instalada. */
+  const download = (release: ModpackRelease, then: () => void) => {
+    const installed = useSettings.getState().settings.modpackVersion
+    const asset = release.asset
+    const totalMB = asset ? asset.size / 1024 / 1024 : 150
+    set({ phase: 'downloading', progress: 0, filesDone: 0, filesTotal: 1, bytesDone: 0, bytesTotal: totalMB, speed: 0, currentFile: asset?.name ?? release.tag })
+    log(installed ? `[Launcher] Atualizando o modpack: TEOF-${installed} → ${release.tag}` : `[Launcher] Instalando o modpack ${release.tag}`)
+    log(asset ? `[Launcher] ${asset.name} (${formatMB(asset.size)}) · ${asset.url}` : `[Launcher] ${release.tag} não tem .zip anexado (tamanho estimado)`)
     let done = 0
-    let speed = 6
+    let speed = 18
     clear()
     timer = window.setInterval(() => {
-      // velocidade oscilante com picos e quedas
-      speed = Math.max(1.2, Math.min(42, speed + (Math.random() - 0.42) * 4 + (Math.random() < 0.03 ? -8 : 0)))
+      // velocidade oscilante com picos e quedas (transferência simulada)
+      speed = Math.max(4, Math.min(64, speed + (Math.random() - 0.4) * 6 + (Math.random() < 0.03 ? -12 : 0)))
       done = Math.min(totalMB, done + speed * 0.08)
       const p = done / totalMB
-      set({
-        progress: p,
-        speed,
-        bytesDone: done,
-        filesDone: Math.min(files, Math.floor(p * files)),
-        currentFile: MOD_FILES[Math.floor(p * MOD_FILES.length * 0.999)],
-        eta: (totalMB - done) / speed,
-      })
+      set({ progress: p, speed, bytesDone: done, filesDone: p >= 1 ? 1 : 0, eta: (totalMB - done) / speed })
       if (p >= 1) {
         window.clearInterval(timer)
-        log('[Launcher] Download concluído.')
+        useSettings.getState().update({ modpackVersion: release.version })
+        log(`[Launcher] Modpack ${release.tag} instalado.`)
         then()
       }
     }, 80)
@@ -202,13 +201,21 @@ export const useLaunch = create<LaunchStore>((set, get) => {
       audio.play('play')
       audio.stopBgm(3)
       audio.stopAmbience(2.5)
-      verify(() => {
-        // Primeira execução sempre "encontra" atualização para demonstrar o download.
-        const needsUpdate = firstRun || Math.random() < 0.5
-        firstRun = false
-        if (needsUpdate) download(launch)
-        else {
-          log('[Launcher] Todos os arquivos estão íntegros.')
+      verify(async () => {
+        // versão mais nova do modpack: releases TEOF- do GitHub
+        const mp = useModpack.getState()
+        if (mp.status !== 'ready') await mp.check()
+        const { latest, fromCache, error } = useModpack.getState()
+        const st = modpackState(useSettings.getState().settings.modpackVersion, latest)
+        if (fromCache) log('[Launcher] Sem conexão com o GitHub — usando a última lista de versões salva.')
+        if (st.kind === 'install' || st.kind === 'update') download(st.latest, launch)
+        else if (st.kind === 'unavailable') {
+          log(`[Launcher] Não foi possível obter o modpack: ${error ?? 'nenhuma versão TEOF- encontrada'}`)
+          audio.play('error')
+          toast({ kind: 'error', title: 'Modpack indisponível', body: 'Não consegui consultar as versões no GitHub. Verifique sua conexão e tente de novo.' })
+          backToReady()
+        } else {
+          log(st.kind === 'current' ? `[Launcher] Modpack TEOF-${st.installed} atualizado.` : `[Launcher] Não foi possível verificar atualizações; usando TEOF-${st.installed}.`)
           launch()
         }
       })

@@ -79,6 +79,16 @@ ipcMain.handle('shell:open-game-dir', async () => {
   return dir
 })
 
+// Links externos: só endereços do GitHub (página de releases do modpack)
+ipcMain.handle('shell:open-external', async (_e, url) => {
+  try {
+    const u = new URL(String(url))
+    if (u.protocol === 'https:' && (u.hostname === 'github.com' || u.hostname.endsWith('.github.com'))) await shell.openExternal(u.toString())
+  } catch {
+    /* URL inválida: ignora */
+  }
+})
+
 app.whenReady().then(() => {
   createWindow()
   app.on('activate', () => {

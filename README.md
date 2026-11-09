@@ -90,6 +90,20 @@ O launcher usa o próprio Java: **Azul Zulu · Java 8 (1.8.0_512), 64-bit**. Tud
 - "Usar outro Java (avançado)" (`'custom'`) aceita um caminho próprio; sem caminho, o Zulu continua sendo usado.
 - **Para a implementação real:** empacotar o JRE do Zulu 8u512 de cada sistema em `runtime/zulu-8u512/` (via `extraResources` do electron-builder) ou baixá-lo do site da Azul no primeiro uso, sempre conferindo o checksum (SHA-256) antes de extrair. No Windows, usar `bin/javaw.exe` (sem console); no Linux/macOS, `bin/java`.
 
+## Modpack: versões TEOF- do GitHub
+
+As versões vêm **de verdade** dos releases de [Akashiic/Technic-Forbidden](https://github.com/Akashiic/Technic-Forbidden/releases), como no launcher de celular:
+
+1. busca os releases pela API pública do GitHub (ao abrir o launcher, a cada 30 min e em "Procurar atualizações");
+2. fica só com as tags `TEOF-<versão>` (ignora rascunhos, pré-releases e tags como `1.0`, `Genesis`, `Update`);
+3. ordena numericamente (5.10 > 5.9) e compara com a versão instalada (`modpackVersion`);
+4. o arquivo do modpack é o `.zip` anexado ao release (o maior, se houver mais de um).
+
+- O JOGAR vira **INSTALAR** (nada instalado) ou **ATUALIZAR** (versão nova), com "TEOF-5.3 → TEOF-5.4 · tamanho" embaixo.
+- Cache com ETag: consultas repetidas recebem `304` e não gastam o limite de 60/hora da API sem login. Sem conexão, usa a última lista salva e joga com a versão instalada.
+- Código: `src/lib/modpack.ts` (busca/ordenação), `src/store/modpack.ts` (estado), `src/components/modpack/ModpackVersions.tsx` (painel).
+- **Ainda simulado:** a transferência do `.zip` e a extração. Na implementação real, baixar `asset.url` no processo principal (com retomada), conferir o tamanho/hash e extrair na pasta do jogo antes de marcar a versão como instalada.
+
 ## Perfis (obrigatório)
 
 Sem perfil não dá para jogar: depois da abertura aparece **Crie seu perfil** (sem botão de fechar). Clicando no jogador (rodapé da coluna) abre o menu para trocar de perfil, adicionar outro, trocar a skin ou remover.

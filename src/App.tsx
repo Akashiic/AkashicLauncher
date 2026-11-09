@@ -18,6 +18,7 @@ import { SkinPage } from '@/pages/SkinPage'
 import { useUi } from '@/store/ui'
 import { useSettings } from '@/store/settings'
 import { useServer } from '@/store/server'
+import { useModpack } from '@/store/modpack'
 import { audio } from '@/audio/AudioManager'
 import { bridge } from '@/lib/bridge'
 import { Logo } from '@/components/ui/Logo'
@@ -40,6 +41,14 @@ export default function App() {
   const hydrate = useSettings((s) => s.hydrate)
   const panel = route === 'home' ? null : PANELS[route]
   const tickServer = useServer((s) => s.tick)
+
+  // versões do modpack (releases TEOF- do GitHub): ao abrir e a cada 30 min
+  const checkModpack = useModpack((s) => s.check)
+  useEffect(() => {
+    void checkModpack()
+    const id = window.setInterval(() => void checkModpack(), 30 * 60 * 1000)
+    return () => window.clearInterval(id)
+  }, [checkModpack])
 
   // mock do status do servidor (substituir por um ping real depois)
   useEffect(() => {

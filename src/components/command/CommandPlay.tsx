@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion'
-import { Play, Loader2, Lock } from 'lucide-react'
+import { Play, Loader2, Lock, Download } from 'lucide-react'
 import { useLaunch } from '@/store/launch'
 import { useServer } from '@/store/server'
 import { useUi } from '@/store/ui'
 import { useFx } from '@/store/fx'
+import { useModpackState } from '@/store/modpack'
+import { useSettings } from '@/store/settings'
+import { formatMB } from '@/lib/modpack'
 import { audio } from '@/audio/AudioManager'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { cn, EASE } from '@/lib/cn'
@@ -41,7 +44,9 @@ const SERVER = {
  * brasas no hover e ligação direta com o portal da cena (acende, carrega e pulsa).
  */
 export function CommandPlay() {
-  const { phase, progress, speed, eta, filesDone, filesTotal, currentFile, play, stop, cancel, sessionStart } = useLaunch()
+  const { phase, progress, speed, eta, filesDone, filesTotal, bytesDone, bytesTotal, currentFile, play, stop, cancel, sessionStart } = useLaunch()
+  const mp = useModpackState()
+  const installedVersion = useSettings((st) => st.settings.modpackVersion)
   const { state: server, players, maxPlayers, cycleState } = useServer()
   const route = useUi((s) => s.route)
   const { playHover, setPlayHover, firePulse } = useFx()
@@ -74,11 +79,14 @@ export function CommandPlay() {
     if (blocked) return { key: 'blocked', label: server === 'maintenance' ? 'MANUTENÇÃO' : 'OFFLINE', right: null, icon: <Lock size={18} /> }
     switch (phase) {
       case 'ready':
+        // o botão diz o que vai acontecer: instalar, atualizar ou jogar
+        if (mp.kind === 'install') return { key: 'ready-install', label: 'INSTALAR', right: null, icon: <Download size={22} /> }
+        if (mp.kind === 'update') return { key: 'ready-update', label: 'ATUALIZAR', right: null, icon: <Download size={22} /> }
         return { key: 'ready', label: 'JOGAR', right: null, icon: <Play size={22} fill="currentColor" /> }
       case 'verifying':
         return { key: 'verifying', label: 'VERIFICANDO', right: `${pct}%`, icon: null }
       case 'downloading':
-        return { key: 'downloading', label: 'ATUALIZANDO', right: `${pct}%`, icon: null }
+        return { key: 'downloading', label: installedVersion ? 'ATUALIZANDO' : 'INSTALANDO', right: `${pct}%`, icon: null }
       case 'launching':
         return { key: 'launching', label: 'ABRINDO O PORTAL', right: `${pct}%`, icon: null }
       case 'running':
@@ -90,7 +98,7 @@ export function CommandPlay() {
 
   const busyLine =
     phase === 'verifying' ? `${filesDone}/${filesTotal} arquivos verificados · clique para cancelar`
-    : phase === 'downloading' ? `${speed.toFixed(1)} MB/s · restam ${fmtTime(eta)} · clique para cancelar`
+    : phase === 'downloading' ? `${bytesDone.toFixed(0)}/${bytesTotal.toFixed(0)} MB · ${speed.toFixed(1)} MB/s · restam ${fmtTime(eta)}`
     : phase === 'launching' ? currentFile || 'Carregando mods…'
     : phase === 'running' ? `Sessão ${elapsed} · clique para fechar o jogo`
     : phase === 'stopping' ? 'Encerrando o jogo…'
@@ -203,7 +211,7 @@ export function CommandPlay() {
                     {view.icon}
                   </motion.span>
                 )}
-                <span className={cn('font-display', view.key === 'ready' ? 'play-title text-[48px] tracking-[4px]' : view.key === 'launching' ? 'text-[26px]' : 'text-[30px]')}>{view.label}</span>
+                <span className={cn('font-display', view.key.startsWith('ready') ? (view.key === 'ready' ? 'play-title text-[48px] tracking-[4px]' : 'play-title text-[40px] tracking-[3px]') : view.key === 'launching' ? 'text-[26px]' : 'text-[30px]')}>{view.label}</span>
               </span>
               {view.right && <span className="play-title font-display text-[30px] tabular-nums">{view.right}</span>}
             </motion.span>
@@ -239,7 +247,13 @@ export function CommandPlay() {
                 <span className={cn('font-semibold', s.text)}>{s.label}</span>
               </button>
             </Tooltip>
-            {server === 'online' ? (
+            {server === 'online' && (mp.kind === 'update' || mp.kind === 'install') ? (
+              <span className="truncate">
+                ·{' '}
+                <span className="font-semibold text-accent-text">{mp.kind === 'update' ? `TEOF-${mp.installed} → ${mp.latest.tag}` : mp.latest.tag}</span>
+                {mp.latest.asset ? ` · ${formatMB(mp.latest.asset.size)}` : ''}
+              </span>
+            ) : server === 'online' ? (
               <>
                 <span className="tabular-nums">· {players}/{maxPlayers} jogadores</span>
                 <span className="text-subtle">·</span>

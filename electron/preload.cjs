@@ -23,5 +23,6 @@ contextBridge.exposeInMainWorld('akashic', {
   },
   shell: {
     openGameDir: () => ipcRenderer.invoke('shell:open-game-dir'),
+    openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
   },
 })

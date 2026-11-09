@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Package, HardDrive, Puzzle, Hammer } from 'lucide-react'
+import { Search, Package, HardDrive, Puzzle, Sparkles } from 'lucide-react'
 import { CORE_MODS } from '@/lib/content'
 import { GlowCard } from '@/components/ui/GlowCard'
 import { OptionalModsList } from '@/components/settings/OptionalModsList'
 import { OPTIONAL_MODS, useSettings } from '@/store/settings'
 import { EASE } from '@/lib/cn'
 import { Versioned } from '@/components/ui/Version'
+import { ModpackVersions } from '@/components/modpack/ModpackVersions'
+import { useModpackState } from '@/store/modpack'
+import { formatMB } from '@/lib/modpack'
 
 export function ModpackPage() {
   const [q, setQ] = useState('')
@@ -14,28 +17,33 @@ export function ModpackPage() {
   const enabled = OPTIONAL_MODS.filter((m) => mods[m.id]).length
   const list = useMemo(() => CORE_MODS.filter(([n, , c]) => `${n} ${c}`.toLowerCase().includes(q.toLowerCase())), [q])
 
+  const mp = useModpackState()
   const stats = [
-    { icon: Package, label: 'Mods inclusos', value: '186' },
+    { icon: Package, label: 'Instalada', value: mp.installed ? `TEOF-${mp.installed}` : '—' },
+    { icon: Sparkles, label: 'Mais recente', value: mp.latest?.tag ?? '—' },
+    { icon: HardDrive, label: 'Tamanho do pack', value: mp.latest?.asset ? formatMB(mp.latest.asset.size) : '—' },
     { icon: Puzzle, label: 'Opcionais ativos', value: `${enabled}/${OPTIONAL_MODS.length}` },
-    { icon: HardDrive, label: 'Tamanho', value: '1.84 GB' },
-    { icon: Hammer, label: 'Forge', value: '10.13.4.1614' },
   ]
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <h1 className="pr-12 font-display text-[40px] text-fg">Modpack</h1>
       <p className="mt-1 text-sm text-muted">
-        <Versioned text="Akashic Survival 3.4 · Minecraft 1.7.10" />
+        <Versioned text="Technic Forbidden · Minecraft 1.7.10" />
       </p>
 
       <div className="mt-5 grid grid-cols-4 gap-3">
         {stats.map((s, i) => (
           <GlowCard key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, ease: EASE, duration: 0.6 }} className="p-4">
             <s.icon size={16} className="relative z-[3] text-accent-strong" />
-            <div className="relative z-[3] mt-3 font-display text-[32px] text-accent-strong">{s.value}</div>
+            <div className="relative z-[3] mt-3 truncate font-display text-[30px] text-accent-strong">{s.value}</div>
             <div className="relative z-[3] text-xs text-muted">{s.label}</div>
           </GlowCard>
         ))}
+      </div>
+
+      <div className="mt-5">
+        <ModpackVersions />
       </div>
 
       <div className="mt-6 flex flex-col gap-6">

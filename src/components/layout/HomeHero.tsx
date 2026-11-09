@@ -3,6 +3,7 @@ import { useFx } from '@/store/fx'
 import { useLaunch } from '@/store/launch'
 import { EASE } from '@/lib/cn'
 import { Versioned } from '@/components/ui/Version'
+import { useModpackState } from '@/store/modpack'
 
 const PARTS = [
   { text: 'Entre no ', cls: 'text-fg' },
@@ -13,6 +14,8 @@ const PARTS = [
 export function HomeHero() {
   const introDone = useFx((s) => s.introDone)
   const launching = useLaunch((s) => s.phase === 'launching')
+  const mp = useModpackState()
+  const tag = mp.installed ? `TEOF-${mp.installed}` : mp.latest?.tag
   let i = 0
 
   return (
@@ -29,7 +32,7 @@ export function HomeHero() {
         animate={introDone ? { opacity: 1, x: 0 } : {}}
         transition={{ delay: 0.35, duration: 0.7, ease: EASE }}
       >
-        <Versioned text="Modpack 1.7.10 · Temporada 3" />
+        <Versioned text={tag ? `${tag} · Minecraft 1.7.10` : 'Modpack · Minecraft 1.7.10'} />
       </motion.span>
       <h1 className="font-display text-[76px] leading-[0.9] text-fg" aria-label="Entre no Proibido.">
         {PARTS.map((part) => (
