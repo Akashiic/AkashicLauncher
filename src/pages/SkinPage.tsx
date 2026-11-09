@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Upload, RotateCcw, CloudUpload, Footprints, Pause, Info, CheckCircle2 } from 'lucide-react'
-import { useSettings } from '@/store/settings'
+import { activeAccount, useSettings } from '@/store/settings'
 import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
 import { defaultSkin, readSkinFile, skinSize, type SkinInfo } from '@/lib/skin'
@@ -12,9 +12,10 @@ import { cn, EASE } from '@/lib/cn'
 
 /** Troca de skin: pré-visualização 3D no formato da 1.7.10, envio de .png e aplicação (simulada). */
 export function SkinPage() {
-  const saved = useSettings((s) => s.settings.skinDataUrl)
-  const nickname = useSettings((s) => s.settings.nickname)
-  const update = useSettings((s) => s.update)
+  const account = useSettings((s) => activeAccount(s.settings))
+  const setAccountSkin = useSettings((s) => s.setAccountSkin)
+  const saved = account?.skinDataUrl ?? null
+  const nickname = account?.username ?? ''
   const [pending, setPending] = useState<SkinInfo | null>(null)
   const [size, setSize] = useState<{ width: number; height: number } | null>(null)
   const [walking, setWalking] = useState<'andar' | 'parado'>('andar')
@@ -46,21 +47,25 @@ export function SkinPage() {
   }
 
   const apply = () => {
-    if (!pending) return
+    if (!pending || !account) return
     setApplying(true)
-    // envio simulado: na versão real, envia para a API da Mojang (conta original) ou para o servidor de skins
+    // envio simulado: conta Microsoft → API da Mojang; perfil offline → servidor de skins do Forbidden
     window.setTimeout(() => {
-      update({ skinDataUrl: pending.dataUrl })
+      setAccountSkin(account.id, pending.dataUrl)
       setPending(null)
       setApplying(false)
       audio.play('success')
-      toast({ kind: 'success', title: 'Skin aplicada', body: 'Ela aparece no servidor na próxima vez que você entrar (simulado).' })
+      toast({
+        kind: 'success',
+        title: 'Skin aplicada',
+        body: account.type === 'microsoft' ? 'Enviada para a sua conta Microsoft (simulado).' : 'Enviada para o servidor de skins do Forbidden (simulado).',
+      })
     }, 1400)
   }
 
   const restore = () => {
     setPending(null)
-    update({ skinDataUrl: null })
+    if (account) setAccountSkin(account.id, null)
     toast({ kind: 'info', title: 'Skin padrão restaurada' })
   }
 

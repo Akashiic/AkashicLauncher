@@ -9,6 +9,19 @@ export type Resolution = '1080p' | '720p' | 'fullscreen' | 'borderless'
 export type LaunchBehavior = 'tray' | 'keep' | 'close'
 export type Minimap = 'journeymap' | 'voxelmap' | 'none'
 
+export type AccountType = 'microsoft' | 'offline'
+
+/** Perfil de jogador. Tokens da Microsoft NUNCA ficam aqui (na versão real: safeStorage no processo principal). */
+export interface Account {
+  id: string
+  type: AccountType
+  username: string
+  uuid: string
+  addedAt: number
+  /** Skin do perfil (PNG em data URL) ou null para a skin padrão. */
+  skinDataUrl: string | null
+}
+
 export interface Settings {
   version: 1
   memoryGb: number
@@ -23,9 +36,9 @@ export interface Settings {
   audio: AudioSettings
   ecoMode: boolean
   profileId: string
-  nickname: string
-  /** Skin do jogador (PNG em data URL) ou null para a skin padrão. */
-  skinDataUrl: string | null
+  /** Perfis de jogador (obrigatório ter ao menos um para jogar). */
+  accounts: Account[]
+  activeAccountId: string | null
 }
 
 export const JVM_PRESETS: Record<Exclude<JvmPreset, 'custom'>, { label: string; hint: string; args: string }> = {
@@ -79,8 +92,8 @@ export const DEFAULT_SETTINGS: Settings = {
   audio: { master: ch(0.8), bgm: ch(0.45), sfx: ch(0.7), sbfx: ch(0.5) },
   ecoMode: false,
   profileId: 'survival',
-  nickname: 'Akashi_Wanderer',
-  skinDataUrl: null,
+  accounts: [],
+  activeAccountId: null,
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -95,7 +108,20 @@ interface SettingsStore {
   setAudio(channel: keyof AudioSettings, patch: Partial<ChannelSettings>): void
   toggleMod(id: string): string[]
   reset(): void
+  addAccount(a: Omit<Account, 'id' | 'addedAt' | 'skinDataUrl'>): Account
+  removeAccount(id: string): void
+  setActiveAccount(id: string): void
+  setAccountSkin(id: string, skinDataUrl: string | null): void
 }
+
+const validSkin = (v: unknown) => (typeof v === 'string' && v.startsWith('data:image/png') ? v : null)
+const validAccount = (a: unknown): a is Account => {
+  const x = a as Partial<Account>
+  return !!x && typeof x.id === 'string' && (x.type === 'microsoft' || x.type === 'offline') && typeof x.username === 'string' && typeof x.uuid === 'string'
+}
+
+/** Perfil em uso (ou null se ainda não há perfil). */
+export const activeAccount = (s: Settings): Account | null => s.accounts.find((a) => a.id === s.activeAccountId) ?? s.accounts[0] ?? null
 
 /** Mescla profunda e defensiva: arquivos antigos/corrompidos não quebram o app. */
 function merge(raw: unknown): Settings {
@@ -114,7 +140,7 @@ function merge(raw: unknown): Settings {
     memoryGb: Math.min(16, Math.max(2, Number(r.memoryGb) || d.memoryGb)),
     // versões antigas usavam 'auto' (detectar Java do sistema): migra para o Zulu incluso
     javaMode: r.javaMode === 'custom' ? 'custom' : 'bundled',
-    skinDataUrl: typeof r.skinDataUrl === 'string' && r.skinDataUrl.startsWith('data:image/png') ? r.skinDataUrl : null,
+    accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }
@@ -184,7 +210,30 @@ export const useSettings = create<SettingsStore>((set, get) => {
       return disabled
     },
     reset() {
-      commit(structuredClone({ ...DEFAULT_SETTINGS, nickname: get().settings.nickname }))
+      // restaurar padrões nunca apaga os perfis
+      const { accounts, activeAccountId } = get().settings
+      commit(structuredClone({ ...DEFAULT_SETTINGS, accounts, activeAccountId }))
+    },
+    addAccount(a) {
+      const s = get().settings
+      const account: Account = { ...a, id: `${a.type}:${a.uuid}`, addedAt: Date.now(), skinDataUrl: null }
+      const accounts = [...s.accounts.filter((x) => x.id !== account.id), account]
+      commit({ ...s, accounts, activeAccountId: account.id })
+      return account
+    },
+    removeAccount(id) {
+      const s = get().settings
+      const accounts = s.accounts.filter((a) => a.id !== id)
+      const activeAccountId = s.activeAccountId === id ? (accounts[0]?.id ?? null) : s.activeAccountId
+      commit({ ...s, accounts, activeAccountId })
+    },
+    setActiveAccount(id) {
+      const s = get().settings
+      if (s.accounts.some((a) => a.id === id)) commit({ ...s, activeAccountId: id })
+    },
+    setAccountSkin(id, skinDataUrl) {
+      const s = get().settings
+      commit({ ...s, accounts: s.accounts.map((a) => (a.id === id ? { ...a, skinDataUrl } : a)) })
     },
   }
 })

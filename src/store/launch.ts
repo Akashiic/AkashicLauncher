@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
-import { useSettings } from '@/store/settings'
+import { activeAccount, useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
 
@@ -146,6 +146,8 @@ export const useLaunch = create<LaunchStore>((set, get) => {
   const launch = () => {
     const { settings } = useSettings.getState()
     set({ phase: 'launching', progress: 0, currentFile: '' })
+    const account = activeAccount(settings)
+    log(account ? `[Launcher] Perfil: ${account.username} (${account.type === 'microsoft' ? 'Microsoft' : 'offline'}) · UUID ${account.uuid}` : '[Launcher] Nenhum perfil selecionado')
     const java = settings.javaMode === 'custom' && settings.javaPath.trim() ? settings.javaPath.trim() : JAVA_RUNTIME.executable
     log(`[Launcher] Java: ${settings.javaMode === 'custom' ? 'personalizado' : javaLabel}`)
     log(`[Launcher] ${java} -Xms1G -Xmx${settings.memoryGb}G ${settings.jvmArgs.slice(0, 60)}... net.minecraft.launchwrapper.Launch`)

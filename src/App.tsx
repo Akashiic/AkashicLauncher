@@ -10,6 +10,7 @@ import { Toaster } from '@/components/layout/Toaster'
 import { AudioUnlock } from '@/components/layout/AudioUnlock'
 import { Intro } from '@/components/layout/Intro'
 import { LaunchFlash } from '@/components/layout/LaunchFlash'
+import { AccountGate } from '@/components/account/AccountGate'
 import { ModpackPage } from '@/pages/ModpackPage'
 import { NewsPage } from '@/pages/NewsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -87,6 +88,7 @@ export default function App() {
           )}
         </AnimatePresence>
         <LaunchFlash />
+        <AccountGate />
         {hydrated && <Intro />}
         <WindowControls />
         <LogsModal />

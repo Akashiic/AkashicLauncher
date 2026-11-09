@@ -116,6 +116,7 @@ export function CommandPlay() {
       if (e.key !== 'Enter' || route !== 'home' || phase !== 'ready') return
       const el = document.activeElement
       if (el && el !== document.body) return
+      if (document.querySelector('[role="dialog"]')) return
       e.preventDefault()
       activate()
     }

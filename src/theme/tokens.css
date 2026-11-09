@@ -53,6 +53,12 @@
   --scene-portal-hot: #ff9a7a; /* núcleo quente do portal */
   --scene-rim: #c9b8b0; /* luz de recorte (contorno dos blocos) */
 
+  /* Logo da Microsoft no botão "Entrar com a Microsoft" (cores exigidas pela marca) */
+  --ms-red: #f25022;
+  --ms-green: #7fba00;
+  --ms-blue: #00a4ef;
+  --ms-yellow: #ffb900;
+
   /* --------------------------- Tipografia --------------------------- */
   --font-display: 'League Gothic', Impact, 'Arial Narrow', sans-serif; /* títulos e botão principal */
   --font-body: 'Oswald', 'Arial Narrow', sans-serif; /* texto, menus, legendas */

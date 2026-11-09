@@ -90,13 +90,26 @@ O launcher usa o próprio Java: **Azul Zulu · Java 8 (1.8.0_512), 64-bit**. Tud
 - "Usar outro Java (avançado)" (`'custom'`) aceita um caminho próprio; sem caminho, o Zulu continua sendo usado.
 - **Para a implementação real:** empacotar o JRE do Zulu 8u512 de cada sistema em `runtime/zulu-8u512/` (via `extraResources` do electron-builder) ou baixá-lo do site da Azul no primeiro uso, sempre conferindo o checksum (SHA-256) antes de extrair. No Windows, usar `bin/javaw.exe` (sem console); no Linux/macOS, `bin/java`.
 
+## Perfis (obrigatório)
+
+Sem perfil não dá para jogar: depois da abertura aparece **Crie seu perfil** (sem botão de fechar). Clicando no jogador (rodapé da coluna) abre o menu para trocar de perfil, adicionar outro, trocar a skin ou remover.
+
+- **Offline:** nick de 3–16 caracteres (`A-Z a-z 0-9 _`). UUID igual ao do Minecraft: `UUID.nameUUIDFromBytes("OfflinePlayer:" + nick)` (`src/lib/offlineUuid.ts`, conferido contra o MD5 do Node).
+- **Microsoft:** login **simulado** nesta versão (`src/lib/auth.ts`), mostrando as etapas reais. Para a implementação real (no processo principal, via IPC):
+  1. OAuth da Microsoft (MSAL, tenant `consumers`) numa BrowserWindow;
+  2. Xbox Live (`user.auth.xboxlive.com`) → XSTS (`xsts.auth.xboxlive.com`);
+  3. `api.minecraftservices.com/authentication/login_with_xbox` → licença (`/entitlements/mcstore`) → perfil (`/minecraft/profile`).
+  - **Requisitos:** app registrado no Azure **e aprovação da Mojang** para acessar a API do Minecraft (apps novos precisam pedir liberação).
+  - Tokens com `safeStorage` do Electron — nunca no `settings.json` (lá ficam só nick, UUID, tipo e skin).
+- Cada perfil tem a própria skin; o perfil ativo aparece nos logs ao jogar.
+
 ## Skin
 
 Clique no jogador (rodapé da coluna) para abrir o painel **Skin**: boneco 3D (arraste para girar, andar/parado), envio de `.png` por clique ou arrastando, e aplicação.
 
 - Formato da 1.7.10: modelo clássico 64×32. Skins 64×64 são aceitas, mas o preview mostra como o jogo exibe (sem a segunda camada, lado esquerdo espelhado). Sem braço fino (Alex).
 - Visualizador próprio em `src/scene/SkinModel.ts` (usa o Three.js do launcher); validação e skin padrão "Forbidden" em `src/lib/skin.ts`.
-- A skin fica salva nas configurações (`skinDataUrl`) e o rosto aparece no avatar da coluna.
+- A skin fica salva no perfil ativo e o rosto aparece no avatar da coluna.
 - **Para a implementação real**, o "Aplicar" deve enviar a skin conforme o tipo de conta do servidor:
   - contas originais (Microsoft): `POST https://api.minecraftservices.com/minecraft/profile/skins` com o token da conta;
   - servidor não-original: para um servidor de skins próprio, lido no jogo por um mod (ex.: CustomSkinLoader) ou plugin (ex.: SkinsRestorer).

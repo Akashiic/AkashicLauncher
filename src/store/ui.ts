@@ -7,6 +7,9 @@ interface UiStore {
   route: Route
   settingsTab: SettingsTab
   logsOpen: boolean
+  /** Diálogo de adicionar perfil aberto manualmente (sem perfis ele é obrigatório). */
+  addAccountOpen: boolean
+  setAddAccountOpen(v: boolean): void
   navigate(r: Route): void
   openSettings(tab?: SettingsTab): void
   setSettingsTab(t: SettingsTab): void
@@ -17,6 +20,8 @@ export const useUi = create<UiStore>((set) => ({
   route: 'home',
   settingsTab: 'performance',
   logsOpen: false,
+  addAccountOpen: false,
+  setAddAccountOpen: (addAccountOpen) => set({ addAccountOpen }),
   navigate: (route) => set({ route }),
   openSettings: (tab) => set((s) => ({ route: 'settings', settingsTab: tab ?? s.settingsTab })),
   setSettingsTab: (settingsTab) => set({ settingsTab }),

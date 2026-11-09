@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Volume2, VolumeX, Settings2, Music2 } from 'lucide-react'
-import { useSettings } from '@/store/settings'
+import { activeAccount, useSettings } from '@/store/settings'
 import { useLaunch } from '@/store/launch'
 import { useUi } from '@/store/ui'
 import { audio } from '@/audio/AudioManager'
 import { SkinHead } from '@/components/skin/SkinHead'
+import { AccountMenu, AccountBadge } from '@/components/account/AccountMenu'
 import { Slider } from '@/components/ui/Slider'
 import { Switch } from '@/components/ui/Switch'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -40,7 +41,9 @@ function VolumePopover({ onClose }: { onClose: () => void }) {
 
 /** Rodapé da coluna: jogador, volume e acesso às configurações. */
 export function UserBar() {
-  const nickname = useSettings((s) => s.settings.nickname)
+  const account = useSettings((s) => activeAccount(s.settings))
+  const nickname = account?.username ?? 'Sem perfil'
+  const [menu, setMenu] = useState(false)
   const muted = useSettings((s) => s.settings.audio.master.muted || s.settings.audio.master.volume === 0)
   const running = useLaunch((s) => s.phase === 'running')
   const { route, navigate } = useUi()
@@ -48,26 +51,37 @@ export function UserBar() {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    if (!open && !menu) return
+    const close = (e: MouseEvent) => {
+      if (ref.current?.contains(e.target as Node)) return
+      setOpen(false)
+      setMenu(false)
+    }
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && (setOpen(false), setMenu(false))
     window.addEventListener('mousedown', close)
-    return () => window.removeEventListener('mousedown', close)
-  }, [open])
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [open, menu])
 
   const iconBtn = 'grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-overlay/[0.07] hover:text-fg'
 
   return (
     <div ref={ref} className="relative mt-3 flex items-center gap-2.5 border-t border-line pt-3">
-      <Tooltip content="Trocar skin" className="min-w-0 flex-1">
+      <Tooltip content="Perfil e skin" className="min-w-0 flex-1" disabled={menu}>
         <button
-          aria-label={`${nickname}: trocar skin`}
-          aria-current={route === 'skin' ? 'page' : undefined}
+          aria-label={`Perfil ${nickname}`}
+          aria-haspopup="menu"
+          aria-expanded={menu}
           onMouseEnter={() => audio.play('hover')}
           onClick={() => {
-            audio.play(route === 'skin' ? 'close' : 'open')
-            navigate(route === 'skin' ? 'home' : 'skin')
+            audio.play(menu ? 'close' : 'click')
+            setOpen(false)
+            setMenu((v) => !v)
           }}
-          className={cn('-m-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-overlay/[0.06]', route === 'skin' && 'bg-brand/50')}
+          className={cn('-m-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-overlay/[0.06]', (menu || route === 'skin') && 'bg-brand/50')}
         >
           <span className="relative shrink-0">
             <SkinHead size={30} />
@@ -75,7 +89,7 @@ export function UserBar() {
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm font-semibold text-fg">{nickname}</span>
-            <span className={cn('text-xs', running ? 'text-accent-text' : 'text-success')}>{running ? 'Jogando' : 'Online'}</span>
+            {running ? <span className="text-xs text-accent-text">Jogando</span> : account ? <AccountBadge type={account.type} /> : null}
           </span>
         </button>
       </Tooltip>
@@ -86,6 +100,7 @@ export function UserBar() {
           onMouseEnter={() => audio.play('hover')}
           onClick={() => {
             audio.play(open ? 'close' : 'click')
+            setMenu(false)
             setOpen((v) => !v)
           }}
           className={cn(iconBtn, open ? 'bg-overlay/[0.07] text-fg' : 'text-muted')}
@@ -108,6 +123,7 @@ export function UserBar() {
         </button>
       </Tooltip>
       <AnimatePresence>{open && <VolumePopover onClose={() => setOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{menu && <AccountMenu onClose={() => setMenu(false)} />}</AnimatePresence>
     </div>
   )
 }

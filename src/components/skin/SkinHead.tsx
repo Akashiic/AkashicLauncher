@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { defaultSkin } from '@/lib/skin'
-import { useSettings } from '@/store/settings'
+import { activeAccount, useSettings } from '@/store/settings'
 
-/** Rosto do jogador recortado da skin atual (rosto 8×8 + camada do chapéu). */
-export function SkinHead({ size = 30, className }: { size?: number; className?: string }) {
-  const skin = useSettings((s) => s.settings.skinDataUrl) ?? defaultSkin()
+/** Rosto do jogador recortado da skin (rosto 8×8 + camada do chapéu). Sem `skin`, usa a do perfil ativo. */
+export function SkinHead({ size = 30, skin, className }: { size?: number; skin?: string | null; className?: string }) {
+  const activeSkin = useSettings((s) => activeAccount(s.settings)?.skinDataUrl ?? null)
+  const src = (skin === undefined ? activeSkin : skin) ?? defaultSkin()
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -17,8 +18,8 @@ export function SkinHead({ size = 30, className }: { size?: number; className?: 
       g.drawImage(img, 8, 8, 8, 8, 0, 0, 8, 8) // rosto
       g.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8) // chapéu
     }
-    img.src = skin
-  }, [skin])
+    img.src = src
+  }, [src])
 
   return <canvas ref={ref} width={8} height={8} className={className} style={{ width: size, height: size, imageRendering: 'pixelated' }} aria-hidden />
 }
