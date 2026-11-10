@@ -1,15 +1,23 @@
 name: Release
 
-# Ao enviar uma tag vX.Y.Z (npm run release X.Y.Z), compila o instalador do
-# Windows e cria um RASCUNHO em Releases. Publicar o rascunho libera a versão:
-# os launchers instalados encontram o latest.json e se atualizam sozinhos.
+# Auto-release: quando a CI passa na branch principal e a versão do app
+# (tauri.conf.json) ainda não tem release, compila o instalador do Windows e
+# PUBLICA o release (os launchers instalados se atualizam sozinhos).
+# Para lançar uma versão: npm run release X.Y.Z, commit e push.
+#
+# Também roda por tag vX.Y.Z (publica) ou manualmente em Actions → Release →
+# Run workflow (cria/atualiza um RASCUNHO, para testar antes).
+#
+# O instalador também fica nos "Artifacts" de cada execução.
 #
 # Atualização automática assinada (configure uma vez, veja o README):
 #   secret   TAURI_SIGNING_PRIVATE_KEY           chave privada
-#   secret   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  senha da chave (se tiver)
+#   secret   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  senha da chave
 #   variable TAURI_UPDATER_PUBKEY                chave pública
-# Sem elas, o instalador sai normalmente, só sem atualização automática.
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   push:
     tags: ['v*']
   workflow_dispatch:
@@ -18,46 +26,71 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
   windows:
     name: Instalador do Windows
     runs-on: windows-latest
+    # pela CI: só quando passou, num push na branch principal
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch)
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Versão e modo de publicação
+        id: meta
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # rascunho só quando rodado à mão; pela CI ou por tag, publica direto
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then echo "draft=true" >> "$GITHUB_OUTPUT"; else echo "draft=false" >> "$GITHUB_OUTPUT"; fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::A tag $GITHUB_REF_NAME não bate com a versão $version do app. Rode: npm run release ${GITHUB_REF_NAME#v}"
+            exit 1
+          fi
+          # pela CI: pula se essa versão já tem release (publicado ou rascunho)
+          skip=false
+          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
+            if gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' | grep -qx "v$version"; then
+              skip=true
+              echo "::notice::A versão v$version já tem release. Para lançar outra, rode npm run release <nova versão> e faça push."
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v5
+        if: steps.meta.outputs.skip != 'true'
         with:
           node-version: 22
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.meta.outputs.skip != 'true'
 
       - uses: swatinem/rust-cache@v2
+        if: steps.meta.outputs.skip != 'true'
         with:
           workspaces: src-tauri -> target
 
       - name: Dependências do npm
+        if: steps.meta.outputs.skip != 'true'
         run: npm ci
-
-      - name: Confere se a tag bate com a versão do app
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          if [ "$tag" != "$conf" ]; then
-            echo "::error::A tag v$tag não bate com a versão $conf do app. Rode: npm run release $tag"
-            exit 1
-          fi
 
       - name: Atualização automática (assinatura)
         id: signing
+        if: steps.meta.outputs.skip != 'true'
         shell: bash
         env:
           PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
@@ -75,19 +108,32 @@ jobs:
             echo "args=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Compila e cria o rascunho do release
+      - name: Compila e publica o release
+        if: steps.meta.outputs.skip != 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
           releaseName: Forbidden Series Launcher v__VERSION__
+          releaseCommitish: ${{ github.event.workflow_run.head_sha || github.sha }}
           releaseBody: |
-            Baixe **Forbidden.Series_x64-setup.exe** abaixo e instale. Na primeira vez que clicar em JOGAR, o launcher baixa o Java, o Minecraft 1.7.10 e a versão mais nova do modpack.
+            Baixe **Forbidden.Series_${{ steps.meta.outputs.version }}_x64-setup.exe** abaixo e instale. Na primeira vez que clicar em JOGAR, o launcher baixa o Java, o Minecraft 1.7.10 e a versão mais nova do modpack.
 
             Quem já tem o launcher recebe esta versão sozinho (aviso no topo da janela).
-          releaseDraft: true
+          releaseDraft: ${{ steps.meta.outputs.draft }}
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: --bundles nsis ${{ steps.signing.outputs.args }}
+
+      - name: Artefatos (instalador e assinatura)
+        if: steps.meta.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: forbidden-launcher-${{ steps.meta.outputs.version }}-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sig
+          if-no-files-found: error
+          retention-days: 30

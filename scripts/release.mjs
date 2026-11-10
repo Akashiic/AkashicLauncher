@@ -26,8 +26,7 @@ writeFileSync('src-tauri/Cargo.lock', lock)
 console.log(`Versão ${v} aplicada. Para publicar:
 
   git commit -am "Launcher v${v}"
-  git tag v${v}
-  git push --follow-tags
+  git push
 
-A Action "Release" compila o instalador e cria um rascunho em Releases.
-Revise e clique em "Publish release": os launchers instalados atualizam sozinhos.`)
+Com a CI verde, a Action "Release" compila o instalador e publica a v${v}
+em Releases; os launchers instalados se atualizam sozinhos.`)

@@ -39,7 +39,7 @@ Requisitos para o app desktop: [Rust](https://rustup.rs) e, no Windows, o WebVie
 Duas Actions em `.github/workflows/`:
 
 - **CI** (`ci.yml`), a cada push e pull request: TypeScript + build da interface, `cargo clippy` sem avisos e testes do Rust.
-- **Release** (`release.yml`), ao enviar uma tag `vX.Y.Z`: compila o instalador do Windows (NSIS) e cria um **rascunho** em Releases com o instalador e o `latest.json` da atualização automática.
+- **Release** (`release.yml`), **auto-release**: quando a CI passa num push na branch principal e a versão do app ainda não tem release, compila o instalador do Windows (NSIS) e **publica** o release com o instalador, a assinatura e o `latest.json` da atualização automática. O instalador também fica nos **Artifacts** da execução (30 dias). Rodando à mão (Actions → Release → Run workflow) cria um **rascunho**, para testar antes.
 
 ### Publicar uma versão
 
@@ -50,13 +50,10 @@ npm run release 0.2.0
 git commit -am "Launcher v0.2.0"
 ```
 ```bash
-git tag v0.2.0
-```
-```bash
-git push --follow-tags
+git push
 ```
 
-O script atualiza a versão em `package.json`, `tauri.conf.json` e `Cargo.toml`; a Action recusa a tag se a versão não bater. Quando o rascunho aparecer em Releases, revise e clique em **Publish release**: a partir daí os launchers instalados mostram "Launcher 0.2.0 disponível · atualizar" no topo (nunca com o jogo aberto) e se atualizam com um clique, conferindo a assinatura.
+O script atualiza a versão em `package.json`, `tauri.conf.json` e `Cargo.toml`. Com a CI verde, o release sai publicado sozinho (a tag é opcional: sem permissão para enviar tags, basta o commit com a versão nova). A partir daí os launchers instalados mostram "Launcher 0.2.0 disponível · atualizar" no topo (nunca com o jogo aberto) e se atualizam com um clique, conferindo a assinatura.
 
 ### Configuração única da atualização automática
 
