@@ -35,7 +35,9 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: |
+            src-tauri -> target
+            installer/src-tauri -> target
 
       - name: Dependências do npm
         run: npm ci
@@ -50,3 +52,7 @@ jobs:
       - name: Testes do Rust
         working-directory: src-tauri
         run: cargo test
+
+      - name: Clippy do instalador
+        working-directory: installer/src-tauri
+        run: cargo clippy --all-targets -- -D warnings

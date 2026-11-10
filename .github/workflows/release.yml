@@ -82,7 +82,9 @@ jobs:
       - uses: swatinem/rust-cache@v2
         if: steps.meta.outputs.skip != 'true'
         with:
-          workspaces: src-tauri -> target
+          workspaces: |
+            src-tauri -> target
+            installer/src-tauri -> target
 
       - name: Dependências do npm
         if: steps.meta.outputs.skip != 'true'
@@ -109,6 +111,7 @@ jobs:
           fi
 
       - name: Compila e publica o release
+        id: tauri
         if: steps.meta.outputs.skip != 'true'
         uses: tauri-apps/tauri-action@v0
         env:
@@ -118,7 +121,7 @@ jobs:
           releaseName: Forbidden Series Launcher v__VERSION__
           releaseCommitish: ${{ github.event.workflow_run.head_sha || github.sha }}
           releaseBody: |
-            Baixe **Forbidden.Series_${{ steps.meta.outputs.version }}_x64-setup.exe** abaixo e instale. Na primeira vez que clicar em JOGAR, o launcher baixa o Java, o Minecraft 1.7.10 e a versão mais nova do modpack.
+            Baixe **ForbiddenSeries-Setup-${{ steps.meta.outputs.version }}.exe** abaixo e instale. Na primeira vez que clicar em JOGAR, o launcher baixa o Java, o Minecraft 1.7.10 e a versão mais nova do modpack.
 
             Quem já tem o launcher recebe esta versão sozinho (aviso no topo da janela).
           releaseDraft: ${{ steps.meta.outputs.draft }}
@@ -127,12 +130,44 @@ jobs:
           updaterJsonPreferNsis: true
           args: --bundles nsis ${{ steps.signing.outputs.args }}
 
-      - name: Artefatos (instalador e assinatura)
+      # instalador com o visual da marca, com o instalador oficial embutido
+      # (o oficial continua no release: é ele que a atualização automática usa)
+      - name: Instalador com o visual da marca
+        id: setup
+        if: steps.meta.outputs.skip != 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          files=(src-tauri/target/release/bundle/nsis/*-setup.exe)
+          export FORBIDDEN_LAUNCHER_INSTALLER="$PWD/${files[0]}"
+          export FORBIDDEN_LAUNCHER_VERSION="$VERSION"
+          (cd installer && npx tauri build --no-bundle)
+          out="ForbiddenSeries-Setup-$VERSION.exe"
+          cp installer/src-tauri/target/release/forbidden-setup.exe "$out"
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Publica o instalador no release
+        if: steps.meta.outputs.skip != 'true'
+        shell: bash
+        env:
+          FILE: ${{ steps.setup.outputs.file }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
+        run: |
+          # sobe pelo id do release (funciona também com rascunho); troca se já existir
+          name=$(basename "$FILE")
+          old=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --jq ".[] | select(.name == \"$name\") | .id")
+          if [ -n "$old" ]; then gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$old"; fi
+          gh api -X POST "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$name" \
+            -H "Content-Type: application/octet-stream" --input "$FILE" --jq .browser_download_url
+
+      - name: Artefatos (instaladores e assinatura)
         if: steps.meta.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: forbidden-launcher-${{ steps.meta.outputs.version }}-windows
           path: |
+            ForbiddenSeries-Setup-*.exe
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.sig
           if-no-files-found: error

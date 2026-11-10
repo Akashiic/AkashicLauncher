@@ -1,0 +1,413 @@
+/* Instalador do Forbidden Series — mesmas cores e fontes do launcher (src/theme/tokens.css) */
+@font-face {
+  font-family: 'League Gothic';
+  src: url('fonts/league-gothic-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Oswald';
+  src: url('fonts/oswald-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Oswald';
+  src: url('fonts/oswald-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+}
+
+:root {
+  --bg-base: #0d0d0d;
+  --surface: #151515;
+  --border: #ffffff1a;
+  --brand: #600000;
+  --brand-hover: #7a0a0a;
+  --accent: #c01818;
+  --accent-strong: #e02424;
+  --accent-text: #ff4d4d;
+  --text: #ffffff;
+  --muted: #bbbbbb;
+  --subtle: #8f8f8f;
+  --success: #3ddc84;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: 'Oswald', 'Arial Narrow', sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.window {
+  display: flex;
+  height: 100%;
+}
+
+/* ------------------------------ arte ------------------------------ */
+.art {
+  position: relative;
+  width: 300px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-right: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 1px 0 24px -8px var(--accent);
+}
+.art-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 60% center;
+  transform: scale(1.08);
+  animation: drift 18s ease-in-out infinite alternate;
+}
+.art-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 38%, transparent 0%, #0d0d0dcc 70%),
+    linear-gradient(180deg, #0d0d0d55 0%, #0d0d0d 92%);
+}
+.art-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px 34px;
+  text-align: center;
+}
+.logo {
+  width: 230px;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 55%, transparent));
+  animation: rise 0.9s var(--ease) both;
+}
+.tagline {
+  margin-top: 14px;
+  font-family: 'League Gothic', Impact, sans-serif;
+  font-size: 30px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  animation: rise 0.9s 0.12s var(--ease) both;
+}
+.tagline span {
+  color: var(--accent-strong);
+}
+
+/* ----------------------------- conteúdo ---------------------------- */
+.content {
+  position: relative;
+  flex: 1;
+  padding: 44px 40px 30px;
+  background: radial-gradient(ellipse 80% 60% at 100% 0%, #60000033, transparent 70%), var(--bg-base);
+}
+.controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+}
+.ctl {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.ctl svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  fill: none;
+}
+.ctl:hover {
+  background: #ffffff14;
+  color: var(--text);
+}
+.ctl-close:hover {
+  background: var(--accent);
+}
+
+.step {
+  position: absolute;
+  inset: 44px 40px 30px;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(14px);
+  filter: blur(4px);
+  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease), filter 0.4s var(--ease);
+}
+.step.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  filter: none;
+}
+
+.kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.kicker-error {
+  color: var(--accent-text);
+}
+h1 {
+  margin-top: 6px;
+  font-family: 'League Gothic', Impact, sans-serif;
+  font-weight: 400;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.lead {
+  margin-top: 12px;
+  max-width: 340px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.lead b {
+  color: var(--text);
+  font-weight: 600;
+}
+.facts {
+  margin-top: 16px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+.facts li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.check input {
+  display: none;
+}
+.box {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  transition: background 0.2s, border-color 0.2s;
+}
+.check input:checked + .box {
+  background: var(--brand);
+  border-color: var(--accent);
+}
+.check input:checked + .box::after {
+  content: '';
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+/* botão principal: mesmo estilo do JOGAR */
+.primary {
+  position: relative;
+  height: 58px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--brand-hover), var(--brand));
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 0 22px -6px var(--accent), inset 0 1px 0 #ffffff1f;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), filter 0.25s;
+}
+.primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, #ffffff22 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.8s var(--ease);
+}
+.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 34px -4px var(--accent), inset 0 1px 0 #ffffff1f;
+}
+.primary:hover::before {
+  transform: translateX(100%);
+}
+.primary:active {
+  transform: scale(0.98);
+}
+.primary-label {
+  position: relative;
+  font-family: 'League Gothic', Impact, sans-serif;
+  font-size: 30px;
+  letter-spacing: 2px;
+}
+.ghost {
+  margin-top: 10px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ghost:hover {
+  color: var(--text);
+}
+.where {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--subtle);
+  text-align: center;
+}
+
+/* progresso */
+.bar {
+  position: relative;
+  margin-top: auto;
+  height: 10px;
+  border-radius: 999px;
+  background: #1e1e1e;
+  overflow: hidden;
+}
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand), var(--accent-strong));
+  box-shadow: 0 0 16px var(--accent);
+  transition: width 0.35s var(--ease);
+}
+.bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, #ffffff44, transparent);
+  animation: shine 1.4s linear infinite;
+}
+.pct {
+  margin-top: 10px;
+  margin-bottom: 8px;
+  font-family: 'League Gothic', Impact, sans-serif;
+  font-size: 34px;
+  color: var(--accent-strong);
+  text-align: right;
+}
+
+/* pronto */
+.done-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 14px;
+  border: 1px solid var(--success);
+  border-radius: 50%;
+  background: #3ddc8414;
+  box-shadow: 0 0 22px -4px var(--success);
+}
+.done-icon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+}
+#step-done.active .done-icon svg {
+  animation: draw 0.6s 0.2s var(--ease) forwards;
+}
+#step-done .primary {
+  margin-top: auto;
+}
+.error-text {
+  color: var(--accent-text);
+  word-break: break-word;
+}
+#step-error .primary {
+  margin-top: auto;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(6px);
+  }
+}
+@keyframes drift {
+  to {
+    transform: scale(1.16) translateX(-10px);
+  }
+}
+@keyframes shine {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

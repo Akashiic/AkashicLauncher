@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost" />
+    <title>Instalar Forbidden Series</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="window">
+      <!-- arte da marca -->
+      <aside class="art" data-tauri-drag-region>
+        <img class="art-bg" src="img/portal.jpg" alt="" data-tauri-drag-region />
+        <div class="art-shade" data-tauri-drag-region></div>
+        <div class="art-content" data-tauri-drag-region>
+          <img class="logo" src="img/logo.png" alt="Forbidden Series" data-tauri-drag-region />
+          <p class="tagline" data-tauri-drag-region>Entre no <span>Proibido.</span></p>
+        </div>
+      </aside>
+
+      <main class="content" data-tauri-drag-region>
+        <div class="controls">
+          <button id="min" class="ctl" aria-label="Minimizar">
+            <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
+          </button>
+          <button id="close" class="ctl ctl-close" aria-label="Fechar">
+            <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" /></svg>
+          </button>
+        </div>
+
+        <!-- 1. boas-vindas -->
+        <section id="step-welcome" class="step active">
+          <span class="kicker" id="version">Launcher</span>
+          <h1 id="title">Instalar o launcher</h1>
+          <p class="lead">O launcher oficial do servidor Forbidden Series. No primeiro <b>JOGAR</b> ele baixa o Java, o Minecraft 1.7.10 e a versão mais nova do modpack.</p>
+
+          <ul class="facts">
+            <li><span class="dot"></span>Instala só para o seu usuário, sem pedir administrador</li>
+            <li><span class="dot"></span>Atualiza sozinho quando sai versão nova</li>
+          </ul>
+
+          <label class="check">
+            <input type="checkbox" id="desktop" checked />
+            <span class="box"></span>
+            Criar atalho na área de trabalho
+          </label>
+
+          <button id="install" class="primary">
+            <span class="primary-label" id="install-label">INSTALAR</span>
+          </button>
+          <p class="where" id="where">Pasta: %LOCALAPPDATA%\Forbidden Series</p>
+        </section>
+
+        <!-- 2. instalando -->
+        <section id="step-progress" class="step">
+          <span class="kicker">Instalando</span>
+          <h1>Abrindo o portal…</h1>
+          <p class="lead" id="progress-label">Preparando os arquivos</p>
+          <div class="bar"><div class="bar-fill" id="bar"></div></div>
+          <div class="pct" id="pct">0%</div>
+        </section>
+
+        <!-- 3. pronto -->
+        <section id="step-done" class="step">
+          <div class="done-icon">
+            <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+          </div>
+          <span class="kicker">Tudo pronto</span>
+          <h1>Bem-vindo ao Proibido.</h1>
+          <p class="lead">O launcher foi instalado. Abra, crie seu perfil e clique em <b>INSTALAR</b> para baixar o modpack.</p>
+          <button id="open" class="primary">
+            <span class="primary-label">ABRIR O LAUNCHER</span>
+          </button>
+          <button id="finish" class="ghost">Fechar</button>
+        </section>
+
+        <!-- erro -->
+        <section id="step-error" class="step">
+          <span class="kicker kicker-error">Algo deu errado</span>
+          <h1>Não foi possível instalar</h1>
+          <p class="lead error-text" id="error-text"></p>
+          <button id="retry" class="primary">
+            <span class="primary-label">TENTAR DE NOVO</span>
+          </button>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

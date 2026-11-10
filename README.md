@@ -41,6 +41,12 @@ Duas Actions em `.github/workflows/`:
 - **CI** (`ci.yml`), a cada push e pull request: TypeScript + build da interface, `cargo clippy` sem avisos e testes do Rust.
 - **Release** (`release.yml`), **auto-release**: quando a CI passa num push na branch principal e a versão do app ainda não tem release, compila o instalador do Windows (NSIS) e **publica** o release com o instalador, a assinatura e o `latest.json` da atualização automática. O instalador também fica nos **Artifacts** da execução (30 dias). Rodando à mão (Actions → Release → Run workflow) cria um **rascunho**, para testar antes.
 
+### Instalador com o visual da marca
+
+O download principal do release é **`ForbiddenSeries-Setup-X.Y.Z.exe`** (pasta `installer/`): uma janela sem moldura com a arte e as fontes do launcher, em três telas (boas-vindas com atalho opcional na área de trabalho → instalando → pronto, com "Abrir o launcher"). Mostra **ATUALIZAR/REINSTALAR** se já houver uma instalação. Por dentro ele roda em modo silencioso o instalador oficial (NSIS) embutido no `.exe`, então a pasta (`%LOCALAPPDATA%\Forbidden Series`), o desinstalador em "Aplicativos instalados" e a atualização automática são os mesmos do instalador padrão. Não pede administrador e não precisa de internet para instalar. O instalador oficial também ficou em português e com a arte da marca (é a janelinha que aparece nas atualizações automáticas).
+
+Para ver a interface sem compilar: abra `installer/ui/index.html` num servidor local (no navegador a instalação é simulada).
+
 ### Publicar uma versão
 
 ```bash
