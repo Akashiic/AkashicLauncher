@@ -163,7 +163,7 @@ jobs:
 
       - name: Artefatos (instaladores e assinatura)
         if: steps.meta.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: forbidden-launcher-${{ steps.meta.outputs.version }}-windows
           path: |
