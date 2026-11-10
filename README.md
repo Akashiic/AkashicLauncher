@@ -39,7 +39,7 @@ Requisitos para o app desktop: [Rust](https://rustup.rs) e, no Windows, o WebVie
 Duas Actions em `.github/workflows/`:
 
 - **CI** (`ci.yml`), a cada push e pull request: TypeScript + build da interface, `cargo clippy` sem avisos e testes do Rust.
-- **Release** (`release.yml`), **auto-release**: quando a CI passa num push na branch principal e a versão do app ainda não tem release, compila o instalador do Windows (NSIS) e **publica** o release com o instalador, a assinatura e o `latest.json` da atualização automática. O instalador também fica nos **Artifacts** da execução (30 dias). Rodando à mão (Actions → Release → Run workflow) cria um **rascunho**, para testar antes.
+- **Release** (`release.yml`), **auto-release**: quando a CI passa num push na branch principal e a versão do app ainda não tem release, compila o instalador do Windows (NSIS) e **publica** o release com o instalador, a assinatura e o `latest.json` da atualização automática. A cada CI verde, mesmo sem versão nova, os instaladores ficam nos **Artifacts** da execução como arquivos soltos, sem zip (30 dias). Rodando à mão (Actions → Release → Run workflow) cria um **rascunho**, para testar antes.
 
 ### Instalador com o visual da marca
 

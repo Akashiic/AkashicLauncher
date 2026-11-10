@@ -1,8 +1,9 @@
 name: Release
 
-# Auto-release: quando a CI passa na branch principal e a versão do app
-# (tauri.conf.json) ainda não tem release, compila o instalador do Windows e
-# PUBLICA o release (os launchers instalados se atualizam sozinhos).
+# A cada CI verde na branch principal: compila os instaladores do Windows e
+# anexa-os à execução como artefatos SOLTOS (sem zip).
+# Auto-release: se a versão do app (tauri.conf.json) ainda não tem release,
+# também PUBLICA o release (os launchers instalados se atualizam sozinhos).
 # Para lançar uma versão: npm run release X.Y.Z, commit e push.
 #
 # Também roda por tag vX.Y.Z (publica) ou manualmente em Actions → Release →
@@ -60,39 +61,35 @@ jobs:
             echo "::error::A tag $GITHUB_REF_NAME não bate com a versão $version do app. Rode: npm run release ${GITHUB_REF_NAME#v}"
             exit 1
           fi
-          # pela CI: pula se essa versão já tem release (publicado ou rascunho)
-          skip=false
+          # pela CI: só publica se essa versão ainda não tem release (publicado ou rascunho);
+          # os instaladores são compilados e anexados como artefatos de qualquer jeito
+          publish=true
           if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
             if gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' | grep -qx "v$version"; then
-              skip=true
-              echo "::notice::A versão v$version já tem release. Para lançar outra, rode npm run release <nova versão> e faça push."
+              publish=false
+              echo "::notice::A versão v$version já tem release: só os artefatos serão gerados. Para lançar outra, rode npm run release <nova versão> e faça push."
             fi
           fi
-          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT""
 
       - uses: actions/setup-node@v5
-        if: steps.meta.outputs.skip != 'true'
         with:
           node-version: 22
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
-        if: steps.meta.outputs.skip != 'true'
 
       - uses: swatinem/rust-cache@v2
-        if: steps.meta.outputs.skip != 'true'
         with:
           workspaces: |
             src-tauri -> target
             installer/src-tauri -> target
 
       - name: Dependências do npm
-        if: steps.meta.outputs.skip != 'true'
         run: npm ci
 
       - name: Atualização automática (assinatura)
         id: signing
-        if: steps.meta.outputs.skip != 'true'
         shell: bash
         env:
           PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
@@ -112,7 +109,7 @@ jobs:
 
       - name: Compila e publica o release
         id: tauri
-        if: steps.meta.outputs.skip != 'true'
+        if: steps.meta.outputs.publish == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -130,11 +127,19 @@ jobs:
           updaterJsonPreferNsis: true
           args: --bundles nsis ${{ steps.signing.outputs.args }}
 
+      - name: Compila (sem publicar)
+        if: steps.meta.outputs.publish != 'true'
+        shell: bash
+        env:
+          ARGS: ${{ steps.signing.outputs.args }}
+        run: |
+          # shellcheck disable=SC2086
+          npx tauri build --bundles nsis $ARGS
+
       # instalador com o visual da marca, com o instalador oficial embutido
       # (o oficial continua no release: é ele que a atualização automática usa)
       - name: Instalador com o visual da marca
         id: setup
-        if: steps.meta.outputs.skip != 'true'
         shell: bash
         env:
           VERSION: ${{ steps.meta.outputs.version }}
@@ -148,7 +153,7 @@ jobs:
           echo "file=$out" >> "$GITHUB_OUTPUT"
 
       - name: Publica o instalador no release
-        if: steps.meta.outputs.skip != 'true'
+        if: steps.meta.outputs.publish == 'true'
         shell: bash
         env:
           FILE: ${{ steps.setup.outputs.file }}
@@ -161,14 +166,36 @@ jobs:
           gh api -X POST "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$name" \
             -H "Content-Type: application/octet-stream" --input "$FILE" --jq .browser_download_url
 
-      - name: Artefatos (instaladores e assinatura)
-        if: steps.meta.outputs.skip != 'true'
-        uses: actions/upload-artifact@v5
+      # artefatos soltos (sem zip): um por arquivo
+      - name: Localiza os arquivos
+        id: files
+        shell: bash
+        run: |
+          nsis=(src-tauri/target/release/bundle/nsis/*-setup.exe)
+          echo "nsis=${nsis[0]}" >> "$GITHUB_OUTPUT"
+          if [ -f "${nsis[0]}.sig" ]; then echo "sig=${nsis[0]}.sig" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Artefato · instalador (visual da marca)
+        uses: actions/upload-artifact@v7
         with:
-          name: forbidden-launcher-${{ steps.meta.outputs.version }}-windows
-          path: |
-            ForbiddenSeries-Setup-*.exe
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/nsis/*.sig
+          path: ${{ steps.setup.outputs.file }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Artefato · instalador oficial (NSIS)
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.files.outputs.nsis }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Artefato · assinatura da atualização
+        if: steps.files.outputs.sig != ''
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.files.outputs.sig }}
+          archive: false
           if-no-files-found: error
           retention-days: 30
