@@ -43,7 +43,18 @@ Duas Actions em `.github/workflows/`:
 
 ### Instalador com o visual da marca
 
-O download principal do release é **`ForbiddenSeries-Setup-X.Y.Z.exe`** (pasta `installer/`): uma janela sem moldura com a arte e as fontes do launcher, em três telas (boas-vindas com atalho opcional na área de trabalho → instalando → pronto, com "Abrir o launcher"). Mostra **ATUALIZAR/REINSTALAR** se já houver uma instalação. Por dentro ele roda em modo silencioso o instalador oficial (NSIS) embutido no `.exe`, então a pasta (`%LOCALAPPDATA%\Forbidden Series`), o desinstalador em "Aplicativos instalados" e a atualização automática são os mesmos do instalador padrão. Não pede administrador e não precisa de internet para instalar. O instalador oficial também ficou em português e com a arte da marca (é a janelinha que aparece nas atualizações automáticas).
+O download principal do release é **`ForbiddenSeries-Setup-X.Y.Z.exe`** (pasta `installer/`). Como no Technic, o mesmo `.exe` é instalador **e** porta de entrada do launcher:
+
+- **nada instalado:** janela com a arte e as fontes do launcher (boas-vindas com atalho opcional na área de trabalho → instalando → pronto, com "Abrir o launcher");
+- **instalado e em dia:** abre o launcher na hora, sem mostrar nada;
+- **instalado, porém mais antigo:** atualiza sozinho com barra de progresso e abre o launcher;
+- **segurando Shift ao abrir** (ou com `--setup`): mostra o instalador para reinstalar.
+
+Tudo fica em **`%APPDATA%\.forbiddenseries`** (como o `.minecraft` e o `.technic`): `launcher\` (o programa), `minecraft\`, `instances\`, `runtime\` e `settings.json`. Por dentro o Setup roda em modo silencioso o instalador oficial (NSIS) embutido no `.exe`, apontado para `launcher\`, então o desinstalador em "Aplicativos instalados" e a atualização automática são os mesmos do instalador padrão. Não pede administrador e não precisa de internet para instalar. O instalador oficial também ficou em português e com a arte da marca (é a janelinha que aparece nas atualizações automáticas).
+
+### Assinatura de código (aviso do Windows SmartScreen)
+
+O aviso "O Windows protegeu o computador" aparece em todo `.exe` sem **assinatura de código**. A Action já está pronta para assinar o launcher, o instalador oficial e o Setup: basta adicionar em **Settings → Secrets and variables → Actions → Secrets** o certificado (`.pfx`) em base64 como `WINDOWS_CERTIFICATE` e a senha como `WINDOWS_CERTIFICATE_PASSWORD`. Sem eles, os arquivos saem sem assinatura (aviso no log da Action). O script de assinatura é `scripts/sign.ps1` (signtool, SHA-256, carimbo de tempo).
 
 Para ver a interface sem compilar: abra `installer/ui/index.html` num servidor local (no navegador a instalação é simulada).
 
@@ -135,7 +146,7 @@ aberração cromática, vinheta e granulado).
 
 ## Persistência
 
-- **App desktop:** `settings.json` na pasta de dados do app (Windows: `%APPDATA%\com.forbiddenseries.launcher\`), escrita atômica em Rust, debounce de 350 ms.
+- **App desktop:** `settings.json` em `%APPDATA%\.forbiddenseries\` (Linux: `~/.local/share/.forbiddenseries/`), escrita atômica em Rust, debounce de 350 ms. Dados de versões antigas (pasta com o nome do identificador do app) são movidos para lá na primeira abertura.
 - **Navegador:** `localStorage["akashic.settings.v1"]`.
 
 Arquivos antigos ou corrompidos são mesclados com os padrões, sem quebrar o app.
@@ -165,7 +176,7 @@ O launcher **não vem com modpack nenhum**: o primeiro JOGAR instala a versão m
 - Testado com um pack de 451 MB: 1ª instalação 451 MB; atualização com 1 mod removido, 1 config alterada e 1 arquivo novo = **211 KB** baixados; um mod apagado restaurado com 291 KB.
 
 - **2ª vez em diante:** só confere tamanhos (rápido). **Verificar arquivos** (Configurações → Desempenho → Java) confere o SHA-1 de tudo e baixa de novo o que estiver corrompido.
-- **Pastas** (Windows: `%APPDATA%\com.forbiddenseries.launcher\`): `minecraft/` (bibliotecas, assets), `instances/forbidden/` (a pasta do jogo: mods, config, saves), `runtime/` (Java).
+- **Pastas** (Windows: `%APPDATA%\.forbiddenseries\`): `minecraft/` (bibliotecas, assets), `instances/forbidden/` (a pasta do jogo: mods, config, saves), `runtime/` (Java).
 - **Logs do jogo:** janela de logs do launcher e `instances/forbidden/logs/launcher-latest.log`. Se o jogo fechar com erro, o aviso mostra o crash report.
 - **Contas offline** entram com UUID offline e token aleatório. O login Microsoft ainda é simulado (veja Perfis).
 - **Validado com o conteúdo do repositório do pack** (branch `main`, commit "Evoltion 0.0": 169 mods, `bin/modpack.jar` = Forge 10.13.4.1614 oficial, SHA-1 idêntico). Atenção: as tags `TEOF-*` do repositório apontam todas para esse mesmo commit, então **não** representam o conteúdo de cada versão; o pack de cada versão é o `.zip` anexado ao release, que é o que o launcher baixa. Resultado: instalação do .zip de 451 MB e janela do jogo em ~30 s; o Forge carregou 237 mods e chegou ao menu principal. Nesse conteúdo, no ambiente de teste (sem placa de vídeo, driver Mesa por software), o **DraconicMinus 1.3** crasha dentro do **Angelica 2.1.33** (`AttribSnapshot.snapshot`); sem ele, abre normalmente.

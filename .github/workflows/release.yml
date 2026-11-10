@@ -15,6 +15,10 @@ name: Release
 #   secret   TAURI_SIGNING_PRIVATE_KEY           chave privada
 #   secret   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  senha da chave
 #   variable TAURI_UPDATER_PUBKEY                chave pública
+#
+# Assinatura de código (tira o aviso do Windows SmartScreen; opcional):
+#   secret   WINDOWS_CERTIFICATE                 certificado .pfx em base64
+#   secret   WINDOWS_CERTIFICATE_PASSWORD        senha do .pfx
 on:
   workflow_run:
     workflows: [CI]
@@ -43,6 +47,7 @@ jobs:
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
@@ -88,22 +93,35 @@ jobs:
       - name: Dependências do npm
         run: npm ci
 
-      - name: Atualização automática (assinatura)
+      - name: Configuração do build (atualização automática e assinatura)
         id: signing
         shell: bash
         env:
           PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
         run: |
+          conf='{}'
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
-            node -e "
-              const pubkey = process.env.PUBKEY.trim();
-              const conf = { bundle: { createUpdaterArtifacts: true }, plugins: { updater: { pubkey } } };
-              require('fs').writeFileSync('src-tauri/updater.conf.json', JSON.stringify(conf));
-            "
-            echo "args=--config src-tauri/updater.conf.json" >> "$GITHUB_OUTPUT"
+            conf=$(node -e "const c=JSON.parse(process.argv[1]); c.bundle={...c.bundle, createUpdaterArtifacts:true}; c.plugins={updater:{pubkey:process.env.PUBKEY.trim()}}; console.log(JSON.stringify(c))" "$conf")
             echo "Atualização automática: ligada."
           else
             echo "::warning::Sem TAURI_SIGNING_PRIVATE_KEY/TAURI_UPDATER_PUBKEY: o instalador sai sem atualização automática."
+          fi
+          if [ -n "$WINDOWS_CERTIFICATE" ]; then
+            pfx="$RUNNER_TEMP/codesign.pfx"
+            echo "$WINDOWS_CERTIFICATE" | base64 -d > "$pfx"
+            echo "WINDOWS_PFX_PATH=$pfx" >> "$GITHUB_ENV"
+            cmd="powershell -NoProfile -ExecutionPolicy Bypass -File $(cygpath -w "$PWD/scripts/sign.ps1") %1"
+            conf=$(node -e "const c=JSON.parse(process.argv[1]); c.bundle={...c.bundle, windows:{signCommand:process.argv[2]}}; console.log(JSON.stringify(c))" "$conf" "$cmd")
+            echo "codesign=true" >> "$GITHUB_OUTPUT"
+            echo "Assinatura de código: ligada."
+          else
+            echo "::notice::Sem WINDOWS_CERTIFICATE: os .exe saem sem assinatura de código (o Windows SmartScreen vai avisar)."
+          fi
+          if [ "$conf" != '{}' ]; then
+            echo "$conf" > src-tauri/updater.conf.json
+            echo "args=--config src-tauri/updater.conf.json" >> "$GITHUB_OUTPUT"
+          else
             echo "args=" >> "$GITHUB_OUTPUT"
           fi
 
@@ -143,6 +161,8 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ steps.meta.outputs.version }}
+          CODESIGN: ${{ steps.signing.outputs.codesign }}
+          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
           files=(src-tauri/target/release/bundle/nsis/*-setup.exe)
           export FORBIDDEN_LAUNCHER_INSTALLER="$PWD/${files[0]}"
@@ -150,6 +170,9 @@ jobs:
           (cd installer && npx tauri build --no-bundle)
           out="ForbiddenSeries-Setup-$VERSION.exe"
           cp installer/src-tauri/target/release/forbidden-setup.exe "$out"
+          if [ "$CODESIGN" = "true" ]; then
+            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign.ps1 "$out"
+          fi
           echo "file=$out" >> "$GITHUB_OUTPUT"
 
       - name: Publica o instalador no release

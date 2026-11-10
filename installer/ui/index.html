@@ -49,13 +49,13 @@
           <button id="install" class="primary">
             <span class="primary-label" id="install-label">INSTALAR</span>
           </button>
-          <p class="where" id="where">Pasta: %LOCALAPPDATA%\Forbidden Series</p>
+          <p class="where" id="where">Pasta: %APPDATA%\.forbiddenseries</p>
         </section>
 
         <!-- 2. instalando -->
         <section id="step-progress" class="step">
-          <span class="kicker">Instalando</span>
-          <h1>Abrindo o portal…</h1>
+          <span class="kicker" id="progress-kicker">Instalando</span>
+          <h1 id="progress-title">Abrindo o portal…</h1>
           <p class="lead" id="progress-label">Preparando os arquivos</p>
           <div class="bar"><div class="bar-fill" id="bar"></div></div>
           <div class="pct" id="pct">0%</div>

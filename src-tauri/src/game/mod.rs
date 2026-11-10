@@ -33,7 +33,7 @@ pub struct GameState {
     pub kill: Mutex<Option<oneshot::Sender<()>>>,
 }
 
-/// Pastas do launcher (Windows: %APPDATA%\com.forbiddenseries.launcher\...).
+/// Pastas do launcher (Windows: %APPDATA%\.forbiddenseries\...).
 pub struct Paths {
     /// bibliotecas, assets e versões do Minecraft (compartilhados)
     pub mc: PathBuf,
@@ -45,8 +45,32 @@ pub struct Paths {
     pub bundled: Option<PathBuf>,
 }
 
+/// Pasta do Forbidden Series: %APPDATA%\.forbiddenseries no Windows
+/// (como o .minecraft e o .technic); ~/.local/share/.forbiddenseries no Linux.
+pub fn data_root(app: &AppHandle) -> Result<PathBuf> {
+    Ok(app.path().data_dir()?.join(".forbiddenseries"))
+}
+
+/// Primeira abertura depois da mudança de pasta: move os dados da pasta antiga
+/// (com o nome do identificador do app) para a .forbiddenseries.
+pub fn migrate_data(app: &AppHandle) {
+    let (Ok(old), Ok(new)) = (app.path().app_data_dir(), data_root(app)) else { return };
+    if old == new || !old.exists() {
+        return;
+    }
+    let _ = std::fs::create_dir_all(&new);
+    for name in ["settings.json", "minecraft", "instances", "runtime", "cache"] {
+        let (from, to) = (old.join(name), new.join(name));
+        if from.exists() && !to.exists() {
+            if let Err(e) = std::fs::rename(&from, &to) {
+                eprintln!("[migração] não deu para mover {name}: {e}");
+            }
+        }
+    }
+}
+
 pub fn paths(app: &AppHandle) -> Result<Paths> {
-    let data = app.path().app_data_dir()?;
+    let data = data_root(app)?;
     Ok(Paths {
         mc: data.join("minecraft"),
         instance: data.join("instances").join("forbidden"),

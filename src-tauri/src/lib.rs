@@ -33,7 +33,7 @@ fn show_launcher(app: &AppHandle) {
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path().app_data_dir().map_err(|e| e.to_string())
+    game::data_root(app).map_err(|e| e.to_string())
 }
 
 fn settings_file(app: &AppHandle) -> Result<PathBuf, String> {
@@ -161,6 +161,8 @@ pub fn run() {
         .manage(updater::PendingUpdate::default())
         .manage(game::GameState::default())
         .setup(|app| {
+            // dados na pasta .forbiddenseries (move da pasta antiga, se houver)
+            game::migrate_data(app.handle());
             let tray = match create_tray(app.handle()) {
                 Ok(t) => Some(t),
                 Err(e) => {
