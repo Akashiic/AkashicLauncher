@@ -74,9 +74,11 @@ impl Progress {
     }
 
     pub fn sub_bytes(&self, n: u64) {
-        let _ = self
-            .bytes_done
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| Some(v.saturating_sub(n)));
+        // subtração saturada sem métodos que mudam de nome entre versões do Rust
+        let mut cur = self.bytes_done.load(Ordering::Relaxed);
+        while let Err(actual) = self.bytes_done.compare_exchange_weak(cur, cur.saturating_sub(n), Ordering::Relaxed, Ordering::Relaxed) {
+            cur = actual;
+        }
     }
 
     pub fn file_done(&self) {
