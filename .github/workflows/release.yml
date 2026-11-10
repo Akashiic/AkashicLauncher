@@ -70,7 +70,7 @@ jobs:
               echo "::notice::A versão v$version já tem release: só os artefatos serão gerados. Para lançar outra, rode npm run release <nova versão> e faça push."
             fi
           fi
-          echo "publish=$publish" >> "$GITHUB_OUTPUT""
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v5
         with:
