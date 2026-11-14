@@ -1,0 +1,7 @@
+# Versão do Rust fixa para o launcher e o instalador (local e nas Actions):
+# uma atualização do Rust no GitHub não pode quebrar a CI nem barrar um release.
+# Para atualizar: troque a versão, rode o clippy dos dois projetos e faça commit.
+[toolchain]
+channel = "1.100.0"
+components = ["clippy"]
+profile = "minimal"

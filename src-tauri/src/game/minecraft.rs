@@ -129,10 +129,7 @@ fn os_matches(os: &Option<OsRule>) -> bool {
         }
     }
     // regras por arquitetura x86 e por versões antigas do sistema não se aplicam aqui
-    if o.arch.as_deref() == Some("x86") || o.version.is_some() {
-        return false;
-    }
-    true
+    o.arch.as_deref() != Some("x86") && o.version.is_none()
 }
 
 pub fn rules_allow(rules: &Option<Vec<Rule>>) -> bool {
