@@ -13,9 +13,13 @@ Enquanto a Mojang não libera, o login vai até o Xbox e para com a mensagem
 
 ## 1. Registrar o app na Microsoft
 
-1. Entre em <https://entra.microsoft.com> com a conta Microsoft que vai ser a dona
-   do app. Se o portal disser que a conta não tem diretório, crie a conta gratuita
-   do Azure: registrar um app não tem custo.
+1. Conta Microsoft pessoal (Outlook/Hotmail/Xbox) não tem diretório próprio, e o
+   portal recusa com "AADSTS16000 … não existe no locatário 'Microsoft Services'".
+   Antes, crie a conta gratuita do Azure em <https://azure.microsoft.com/free>
+   com essa mesma conta (pede telefone e cartão só para verificação; registrar um
+   app não cobra nada). Isso cria o seu diretório ("Diretório Padrão").
+   Depois entre em <https://portal.azure.com> e abra **Microsoft Entra ID**. Se
+   aparecer outro diretório, troque em **Configurações → Diretórios** para o seu.
 2. **Aplicativos → Registros de aplicativo → Novo registro**:
    - **Nome:** `Forbidden Series Launcher`
    - **Tipos de conta compatíveis:** *Somente contas pessoais da Microsoft*
