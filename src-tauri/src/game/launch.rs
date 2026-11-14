@@ -34,6 +34,8 @@ pub struct Spec<'a> {
     pub vanilla: &'a Vanilla,
     pub forge: &'a Forge,
     pub account: &'a Account,
+    /// token do Minecraft da conta Microsoft (None = offline)
+    pub access_token: Option<&'a str>,
     pub memory_gb: u32,
     pub jvm_args: &'a [String],
 }
@@ -109,12 +111,17 @@ pub fn command_line(s: &Spec) -> Vec<String> {
     args.push(s.forge.main_class.clone());
 
     let uuid = s.account.uuid.replace('-', "");
-    // contas offline: token aleatório (o 1.7.10 não valida no singleplayer/servidores offline)
-    let token: String = {
-        use rand::Rng;
-        let mut r = rand::thread_rng();
-        (0..32).map(|_| format!("{:x}", r.gen_range(0..16))).collect()
+    // conta Microsoft: token de verdade (entra em servidores originais);
+    // offline: token aleatório (o 1.7.10 não valida no singleplayer/servidores offline)
+    let token: String = match s.access_token {
+        Some(t) => t.to_string(),
+        None => {
+            use rand::Rng;
+            let mut r = rand::thread_rng();
+            (0..32).map(|_| format!("{:x}", r.gen_range(0..16))).collect()
+        }
     };
+    let user_type = if s.access_token.is_some() { "msa" } else { "legacy" };
     let assets = s.mc_root.join("assets");
     for a in s.forge.minecraft_arguments.split_whitespace() {
         let v = match a {
@@ -126,7 +133,7 @@ pub fn command_line(s: &Spec) -> Vec<String> {
             "${auth_uuid}" => uuid.clone(),
             "${auth_access_token}" | "${auth_session}" => token.clone(),
             "${user_properties}" => "{}".into(),
-            "${user_type}" => "legacy".into(),
+            "${user_type}" => user_type.into(),
             other => other.to_string(),
         };
         args.push(v);

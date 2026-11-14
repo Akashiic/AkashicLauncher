@@ -4,6 +4,7 @@
 //! partes nativas: bandeja, configurações em disco e abertura de pastas/links.
 //! É também o lugar da lógica pesada que vem depois (download, extração, Java).
 
+mod auth;
 mod frame;
 mod game;
 mod updater;
@@ -90,7 +91,9 @@ fn open_game_dir(app: AppHandle) -> Result<String, String> {
 fn open_external(app: AppHandle, url: String) -> Result<(), String> {
     let u = url::Url::parse(&url).map_err(|e| e.to_string())?;
     let host = u.host_str().unwrap_or_default();
-    let allowed = u.scheme() == "https" && (host == "github.com" || host.ends_with(".github.com"));
+    // GitHub (releases) e as páginas oficiais do login Microsoft/Xbox/Minecraft
+    const HOSTS: [&str; 6] = ["github.com", "login.microsoftonline.com", "login.live.com", "account.microsoft.com", "www.xbox.com", "www.minecraft.net"];
+    let allowed = u.scheme() == "https" && (HOSTS.contains(&host) || host.ends_with(".github.com"));
     if !allowed {
         return Err("link não permitido".into());
     }
@@ -161,6 +164,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .manage(game::GameState::default())
+        .manage(auth::AuthState::default())
         .setup(|app| {
             // dados na pasta .forbiddenseries (move da pasta antiga, se houver)
             game::migrate_data(app.handle());
@@ -192,7 +196,12 @@ pub fn run() {
             game::game_verify,
             game::game_update_plan,
             updater::launcher_check_update,
-            updater::launcher_install_update
+            updater::launcher_install_update,
+            auth::auth_configured,
+            auth::auth_login,
+            auth::auth_cancel,
+            auth::auth_refresh,
+            auth::auth_forget
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o launcher");

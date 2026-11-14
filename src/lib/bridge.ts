@@ -29,6 +29,34 @@ export interface AkashicBridge {
   game?: GameApi
   /** Atualização do próprio launcher (só no app desktop). */
   updater?: LauncherUpdaterApi
+  /** Contas Microsoft (só no app desktop). Os tokens ficam no cofre do Rust. */
+  auth?: AuthApi
+}
+
+/** Perfil de uma conta Microsoft (sem tokens). */
+export interface MsProfile {
+  username: string
+  uuid: string
+  /** skin ativa em data URL (PNG) */
+  skin: string | null
+}
+
+/** Erro de conta vindo do Rust: código + mensagem pronta para o jogador. */
+export interface AuthFailure {
+  code: 'not_configured' | 'busy' | 'cancelled' | 'timeout' | 'network' | 'xbox' | 'no_xbox' | 'child' | 'region' | 'not_approved' | 'no_minecraft' | 'relogin' | 'other'
+  message: string
+}
+
+export interface AuthApi {
+  /** O ID do app da Microsoft veio na build? */
+  configured(): Promise<boolean>
+  /** Abre a página oficial no navegador e conclui o login. */
+  login(handlers: { onStep(step: number): void; onBrowser(url: string): void }): Promise<MsProfile>
+  cancel(): Promise<void>
+  /** Confere/renova a sessão antes de jogar; devolve o perfil atual. */
+  refresh(uuid: string): Promise<MsProfile>
+  /** Sair: apaga a sessão do cofre. */
+  forget(uuid: string): Promise<void>
 }
 
 export interface LauncherUpdateInfo {
@@ -184,6 +212,23 @@ function tauriBridge(): AkashicBridge {
         const off = listen(event, (e) => cb(e.payload as never))
         return () => void off.then((f) => f())
       },
+    },
+    auth: {
+      configured: () => invoke<boolean>('auth_configured'),
+      login: async ({ onStep, onBrowser }) => {
+        // ouve os eventos antes de começar, para não perder a primeira etapa
+        const offStep = await listen<number>('auth:step', (e) => onStep(e.payload))
+        const offUrl = await listen<string>('auth:browser', (e) => onBrowser(e.payload))
+        try {
+          return await invoke<MsProfile>('auth_login')
+        } finally {
+          offStep()
+          offUrl()
+        }
+      },
+      cancel: () => invoke<void>('auth_cancel'),
+      refresh: (uuid) => invoke<MsProfile>('auth_refresh', { uuid }),
+      forget: (uuid) => invoke<void>('auth_forget', { uuid }),
     },
     updater: {
       check: () => invoke<LauncherUpdateInfo | null>('launcher_check_update'),

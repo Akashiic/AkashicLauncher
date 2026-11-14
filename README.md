@@ -178,7 +178,7 @@ O launcher **não vem com modpack nenhum**: o primeiro JOGAR instala a versão m
 - **2ª vez em diante:** só confere tamanhos (rápido). **Verificar arquivos** (Configurações → Desempenho → Java) confere o SHA-1 de tudo e baixa de novo o que estiver corrompido.
 - **Pastas** (Windows: `%APPDATA%\.forbiddenseries\`): `minecraft/` (bibliotecas, assets), `instances/forbidden/` (a pasta do jogo: mods, config, saves), `runtime/` (Java).
 - **Logs do jogo:** janela de logs do launcher e `instances/forbidden/logs/launcher-latest.log`. Se o jogo fechar com erro, o aviso mostra o crash report.
-- **Contas offline** entram com UUID offline e token aleatório. O login Microsoft ainda é simulado (veja Perfis).
+- **Contas offline** entram com UUID offline e token aleatório; **contas Microsoft**, com o token de verdade do cofre (`--userType msa`), renovado sozinho quando vence (veja Perfis).
 - **Validado com o conteúdo do repositório do pack** (branch `main`, commit "Evoltion 0.0": 169 mods, `bin/modpack.jar` = Forge 10.13.4.1614 oficial, SHA-1 idêntico). Atenção: as tags `TEOF-*` do repositório apontam todas para esse mesmo commit, então **não** representam o conteúdo de cada versão; o pack de cada versão é o `.zip` anexado ao release, que é o que o launcher baixa. Resultado: instalação do .zip de 451 MB e janela do jogo em ~30 s; o Forge carregou 237 mods e chegou ao menu principal. Nesse conteúdo, no ambiente de teste (sem placa de vídeo, driver Mesa por software), o **DraconicMinus 1.3** crasha dentro do **Angelica 2.1.33** (`AttribSnapshot.snapshot`); sem ele, abre normalmente.
 - **Testar com um pack local:** gere o build com `VITE_MODPACK_RELEASES_URL=http://localhost:8765/releases.json` (lista no formato da API do GitHub). Assim foi validado: Java baixado, 1.7.10 + Forge até o menu principal, atualização 9.0 → 9.1 (mod removido, `options.txt` do jogador mantido), fechar o jogo pelo launcher e verificação com arquivo corrompido.
 
@@ -233,12 +233,7 @@ O login é um **painel dentro da coluna de comando** (`src/components/account/Ac
 - **Com perfil:** no menu do jogador (rodapé da coluna), *Adicionar perfil* desliza a coluna para o login, com **Voltar** (ou Esc) e a lista **Perfis salvos** para trocar com um clique. O mesmo menu troca de perfil, troca a skin ou remove o perfil; removendo o último, o login obrigatório volta.
 
 - **Offline:** nick de 3–16 caracteres (`A-Z a-z 0-9 _`). UUID igual ao do Minecraft: `UUID.nameUUIDFromBytes("OfflinePlayer:" + nick)` (`src/lib/offlineUuid.ts`, conferido contra o MD5 do Node).
-- **Microsoft:** login **simulado** nesta versão (`src/lib/auth.ts`), mostrando as etapas reais. Para a implementação real (em Rust, como comandos do Tauri):
-  1. OAuth da Microsoft (MSAL, tenant `consumers`) numa BrowserWindow;
-  2. Xbox Live (`user.auth.xboxlive.com`) → XSTS (`xsts.auth.xboxlive.com`);
-  3. `api.minecraftservices.com/authentication/login_with_xbox` → licença (`/entitlements/mcstore`) → perfil (`/minecraft/profile`).
-  - **Requisitos:** app registrado no Azure **e aprovação da Mojang** para acessar a API do Minecraft (apps novos precisam pedir liberação).
-  - Tokens no cofre do sistema (crate `keyring`: Credential Manager no Windows) — nunca no `settings.json` (lá ficam só nick, UUID, tipo e skin).
+- **Microsoft:** login real (`src-tauri/src/auth`): página oficial no navegador (OAuth com PKCE) → Xbox Live → XSTS → Minecraft → perfil, com renovação automática no JOGAR. Os tokens ficam no cofre `accounts.dat` (DPAPI no Windows), nunca no `settings.json`. Para ativar: app na Microsoft, liberação da Mojang e a variável `MS_CLIENT_ID` no repositório. Passo a passo em [docs/contas-microsoft.md](docs/contas-microsoft.md).
 - Cada perfil tem a própria skin; o perfil ativo aparece nos logs ao jogar.
 
 ## Skin
@@ -255,6 +250,6 @@ Clique no jogador (rodapé da coluna) para abrir o painel **Skin**: boneco 3D (a
 ## Onde plugar a lógica real
 
 - ~~`src/store/launch.ts`~~ → feito: JOGAR real em Rust (`src-tauri/src/game`).
-- Login Microsoft real (veja Perfis) — hoje as contas Microsoft entram como offline.
+- ~~Login Microsoft real~~ → feito (`src-tauri/src/auth`, veja Perfis).
 - `src/store/server.ts` → troque `tick()` por um Server List Ping de verdade.
 - `src/lib/content.ts` → notícias e changelog vindos da sua API.

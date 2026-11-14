@@ -56,3 +56,26 @@ jobs:
       - name: Clippy do instalador
         working-directory: installer/src-tauri
         run: cargo clippy --all-targets -- -D warnings
+
+  # o cofre das contas Microsoft usa o DPAPI do Windows: testa no Windows de verdade
+  vault-windows:
+    name: Cofre das contas (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: cofre
+
+      # o Tauri exige a pasta da interface para compilar; o teste não abre janela
+      - name: Interface mínima
+        shell: bash
+        run: mkdir -p dist && echo '<!doctype html><title>teste</title>' > dist/index.html
+
+      - name: Testes do login e do cofre (DPAPI)
+        working-directory: src-tauri
+        run: cargo test --lib 'auth::'

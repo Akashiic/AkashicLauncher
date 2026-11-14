@@ -3,6 +3,8 @@ import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
 import { activeAccount, useSettings } from '@/store/settings'
 import { bridge } from '@/lib/bridge'
+import { authErrorTitle, authMessage, isAuthFailure } from '@/lib/auth'
+import { useUi } from '@/store/ui'
 import { JAVA_RUNTIME, javaLabel } from '@/lib/java'
 import { describeUpdate, formatMB, packRef, parseTag, type ModpackRelease } from '@/lib/modpack'
 import { normalizeFlags } from '@/lib/jvm'
@@ -282,7 +284,37 @@ export const useLaunch = create<LaunchStore>((set, get) => {
 
   const accountForLaunch = () => {
     const acc = activeAccount(useSettings.getState().settings)
-    return acc ? { username: acc.username, uuid: acc.uuid, type: acc.type } : null
+    return acc ? { id: acc.id, username: acc.username, uuid: acc.uuid, type: acc.type } : null
+  }
+
+  /**
+   * Conta Microsoft: confere/renova a sessão antes de baixar qualquer coisa e
+   * atualiza nick e skin se mudaram em minecraft.net. Devolve o tipo com que o
+   * jogo vai abrir, ou null se não dá para jogar com essa conta agora.
+   */
+  const checkMicrosoft = async (account: NonNullable<ReturnType<typeof accountForLaunch>>): Promise<'microsoft' | 'offline' | null> => {
+    if (account.type !== 'microsoft' || !bridge.auth) return account.type
+    set({ stage: 'Conta Microsoft' })
+    try {
+      const p = await bridge.auth.refresh(account.uuid)
+      const patch = { ...(p.username !== account.username ? { username: p.username } : {}), ...(p.skin ? { skinDataUrl: p.skin } : {}) }
+      if (Object.keys(patch).length) useSettings.getState().updateAccount(account.id, patch)
+      if (p.username !== account.username) log(`[Launcher] Nick atualizado pela Microsoft: ${account.username} → ${p.username}`)
+      account.username = p.username
+      log(`[Launcher] Conta Microsoft validada: ${p.username}`)
+      return 'microsoft'
+    } catch (e) {
+      // sem internet até a Microsoft: abre sem validar (singleplayer e servidores offline continuam)
+      if (isAuthFailure(e) && (e.code === 'network' || e.code === 'timeout')) {
+        log(`[Launcher] ${e.message} Abrindo sem validar a conta.`)
+        toast({ kind: 'warning', title: 'Conta não validada', body: 'Sem resposta da Microsoft: o jogo abre normalmente, mas servidores originais podem recusar a entrada.' }, 8000)
+        return 'offline'
+      }
+      audio.play('error')
+      toast({ kind: isAuthFailure(e) && e.code === 'relogin' ? 'warning' : 'error', title: authErrorTitle(e), body: authMessage(e) }, 9000)
+      if (isAuthFailure(e) && e.code === 'relogin') useUi.getState().setAddAccountOpen(true)
+      return null
+    }
   }
 
   const playNative = async () => {
@@ -297,6 +329,11 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     audio.stopBgm(3)
     audio.stopAmbience(2.5)
     set({ phase: 'verifying', stage: 'Preparando', progress: 0, filesDone: 0, filesTotal: 0, bytesDone: 0, bytesTotal: 0, speed: 0, eta: 0, currentFile: '' })
+    const type = await checkMicrosoft(account)
+    if (!type) {
+      backToReady()
+      return
+    }
     // versão mais nova do modpack: releases TEOF- do GitHub
     const mp = useModpack.getState()
     if (mp.status !== 'ready') await mp.check()
@@ -309,7 +346,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
     const custom = settings.javaMode === 'custom' && settings.javaPath.trim() ? settings.javaPath.trim() : null
     try {
       await game.play({
-        account,
+        account: { username: account.username, uuid: account.uuid, type },
         memoryGb: settings.memoryGb,
         jvmArgs: normalizeFlags(settings.jvmArgs).split(/\s+/).filter(Boolean),
         javaPath: custom,

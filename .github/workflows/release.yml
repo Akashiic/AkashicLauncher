@@ -16,6 +16,9 @@ name: Release
 #   secret   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  senha da chave
 #   variable TAURI_UPDATER_PUBKEY                chave pública
 #
+# Contas originais (login com Microsoft; veja docs/contas-microsoft.md):
+#   variable MS_CLIENT_ID                        ID do app no Microsoft Entra
+#
 # Assinatura de código (tira o aviso do Windows SmartScreen; opcional):
 #   secret   WINDOWS_CERTIFICATE                 certificado .pfx em base64
 #   secret   WINDOWS_CERTIFICATE_PASSWORD        senha do .pfx
@@ -49,10 +52,21 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ID público do app da Microsoft (não é segredo); vazio = login Microsoft desativado
+      FORBIDDEN_MS_CLIENT_ID: ${{ vars.MS_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Login com Microsoft
+        shell: bash
+        run: |
+          if [ -n "$FORBIDDEN_MS_CLIENT_ID" ]; then
+            echo "Login com Microsoft ativado nesta build."
+          else
+            echo "::notice::Sem a variável MS_CLIENT_ID: o login com Microsoft fica desativado nesta build (o modo offline funciona normalmente)."
+          fi
 
       - name: Versão e modo de publicação
         id: meta

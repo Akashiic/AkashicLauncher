@@ -142,6 +142,14 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
     let net = Net::new(state.cancel.clone())?;
     log(app, build_label());
 
+    // conta original: token do Minecraft do cofre (renovado se preciso) antes de baixar qualquer coisa
+    let access_token = if req.account.kind == "microsoft" {
+        prog.stage("verifying", "Conta Microsoft");
+        Some(crate::auth::launch_token(app, &req.account.uuid).await?)
+    } else {
+        None
+    };
+
     // 1) Java
     prog.stage("verifying", "Java 8 (Zulu 8u512)");
     let java = match req.java_path.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
@@ -266,6 +274,7 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
         vanilla: &vanilla,
         forge: &forge,
         account: &req.account,
+        access_token: access_token.as_deref(),
         memory_gb: req.memory_gb,
         jvm_args: &req.jvm_args,
     });

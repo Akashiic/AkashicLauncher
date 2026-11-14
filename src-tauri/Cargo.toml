@@ -31,6 +31,7 @@ flate2 = "1"
 tar = "0.4"
 rand = "0.8"
 crc32fast = "1"
+base64 = "0.22"
 
 # os testes de ponta a ponta usam o runtime de teste do Tauri (sem janela)
 [dev-dependencies]

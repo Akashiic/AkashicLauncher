@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Check, Info, Loader2, User, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Check, Copy, ExternalLink, Info, Loader2, User, ShieldCheck, X } from 'lucide-react'
 import { useSettings, type Account } from '@/store/settings'
 import { useUi } from '@/store/ui'
 import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
-import { MS_STEPS, loginMicrosoft } from '@/lib/auth'
+import { MS_STEPS, authErrorTitle, authMessage, cancelMicrosoft, isAuthFailure, loginMicrosoft, microsoftAvailable } from '@/lib/auth'
+import { bridge } from '@/lib/bridge'
 import { NICK_RE, offlineUuid } from '@/lib/offlineUuid'
 import { Button } from '@/components/ui/Button'
 import { SkinHead } from '@/components/skin/SkinHead'
@@ -31,6 +32,12 @@ export function AccountPanel({ mandatory }: { mandatory: boolean }) {
   const accounts = useSettings((s) => s.settings.accounts)
   const activeId = useSettings((s) => s.settings.activeAccountId)
   const { addAccount, setActiveAccount } = useSettings()
+  // null = navegador (simulação); false = esta build não tem o ID do app da Microsoft
+  const [msReady, setMsReady] = useState<boolean | null>(null)
+  const [browserUrl, setBrowserUrl] = useState<string | null>(null)
+  useEffect(() => {
+    void microsoftAvailable().then(setMsReady)
+  }, [])
   const setAddOpen = useUi((s) => s.setAddAccountOpen)
 
   const [mode, setMode] = useState<Mode>('microsoft')
@@ -63,21 +70,48 @@ export function AccountPanel({ mandatory }: { mandatory: boolean }) {
   }
 
   const signInMicrosoft = async () => {
+    if (msReady === false) {
+      audio.play('error')
+      toast({ kind: 'info', title: 'Contas Microsoft em breve', body: 'O login com Microsoft ainda não foi ativado nesta versão. Por enquanto, use o modo offline.' })
+      return
+    }
     audio.play('open')
+    setBrowserUrl(null)
     setStep(0)
     try {
-      const profile = await loginMicrosoft(setStep)
-      if (accounts.some((a) => a.type === 'microsoft' && a.uuid === profile.uuid)) toast({ kind: 'info', title: 'Essa conta já está salva' })
+      const profile = await loginMicrosoft(setStep, setBrowserUrl)
+      const known = accounts.some((a) => a.type === 'microsoft' && a.uuid === profile.uuid)
+      // entrar de novo numa conta salva só renova nick, skin e sessão
+      addAccount({ type: 'microsoft', username: profile.username, uuid: profile.uuid, skinDataUrl: profile.skin })
+      if (known) {
+        audio.play('success')
+        toast({ kind: 'success', title: `Bem-vindo de volta, ${profile.username}!`, body: 'Sessão Microsoft renovada.' })
+        setAddOpen(false)
+      } else done(profile.username, 'microsoft')
+    } catch (e) {
+      if (isAuthFailure(e) && e.code === 'cancelled') toast({ kind: 'info', title: 'Login cancelado' }, 2500)
       else {
-        addAccount({ type: 'microsoft', username: profile.username, uuid: profile.uuid })
-        done(profile.username, 'microsoft')
+        audio.play('error')
+        toast({ kind: 'error', title: authErrorTitle(e), body: authMessage(e) }, 9000)
       }
-    } catch {
-      audio.play('error')
-      toast({ kind: 'error', title: 'Não foi possível entrar', body: 'Tente novamente em instantes.' })
     } finally {
       setStep(-1)
+      setBrowserUrl(null)
     }
+  }
+
+  const reopenBrowser = () => {
+    if (!browserUrl) return
+    audio.play('click')
+    void bridge.shell.openExternal(browserUrl).catch(() => toast({ kind: 'error', title: 'Não deu para abrir o navegador', body: 'Use “Copiar link” e cole no navegador.' }))
+  }
+
+  const copyLink = () => {
+    if (!browserUrl) return
+    void navigator.clipboard
+      .writeText(browserUrl)
+      .then(() => toast({ kind: 'success', title: 'Link copiado', body: 'Cole no navegador para entrar.' }, 2500))
+      .catch(() => toast({ kind: 'error', title: 'Não deu para copiar o link' }))
   }
 
   const createOffline = () => {
@@ -118,13 +152,39 @@ export function AccountPanel({ mandatory }: { mandatory: boolean }) {
 
               {!busy ? (
                 <>
-                  <Button variant="primary" size="lg" sound={null} onClick={signInMicrosoft} icon={<MicrosoftLogo size={16} />} className="mt-5 w-full !px-4">
+                  <Button variant="primary" size="lg" sound={null} onClick={signInMicrosoft} icon={<MicrosoftLogo size={16} />} className={cn('mt-5 w-full !px-4', msReady === false && 'opacity-60')}>
                     Entrar com Microsoft
                   </Button>
                   <p className="mt-2 flex items-center gap-1.5 text-xs text-subtle">
                     <ShieldCheck size={12} className="text-success" /> Login na página oficial · o launcher não vê sua senha
                   </p>
                 </>
+              ) : step === 0 && msReady ? (
+                // esperando o jogador entrar na página da Microsoft
+                <div className="mt-5 rounded-2xl border border-line bg-bg/60 p-3.5" aria-live="polite">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+                    <Loader2 size={14} className="animate-spin text-accent-strong" /> Continue no navegador
+                  </div>
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted">Abrimos a página oficial da Microsoft. Entre com a sua conta por lá e volte para cá: o resto é automático.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-1.5">
+                    <Button size="sm" variant="ghost" sound={null} icon={<ExternalLink size={12} />} onClick={reopenBrowser} disabled={!browserUrl} className="w-full">
+                      Reabrir
+                    </Button>
+                    <Button size="sm" variant="ghost" sound={null} icon={<Copy size={12} />} onClick={copyLink} disabled={!browserUrl} className="w-full">
+                      Copiar
+                    </Button>
+                  </div>
+                  <button
+                    onMouseEnter={() => audio.play('hover')}
+                    onClick={() => {
+                      audio.play('close')
+                      void cancelMicrosoft()
+                    }}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-xs text-muted transition-colors hover:bg-overlay/[0.06] hover:text-fg"
+                  >
+                    <X size={12} /> Cancelar login
+                  </button>
+                </div>
               ) : (
                 <div className="mt-5 rounded-2xl border border-line bg-bg/60 p-3.5" aria-live="polite">
                   <div className="mb-2.5 text-sm font-semibold text-fg">Conectando sua conta…</div>
@@ -245,9 +305,9 @@ export function AccountPanel({ mandatory }: { mandatory: boolean }) {
             </>
           )}
         </button>
-        {mode === 'microsoft' && (
+        {mode === 'microsoft' && msReady !== true && (
           <span className="flex items-center gap-1 text-[11px] text-subtle">
-            <Info size={11} /> Demonstração: o login Microsoft é simulado.
+            <Info size={11} /> {msReady === null ? 'Demonstração: o login Microsoft é simulado.' : 'Login Microsoft em breve nesta versão.'}
           </span>
         )}
       </div>

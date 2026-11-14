@@ -11,5 +11,7 @@ fn main() {
     println!("cargo:rustc-env=FORBIDDEN_BUILD={sha}");
     println!("cargo:rerun-if-changed=../.git/HEAD");
     println!("cargo:rerun-if-env-changed=GITHUB_SHA");
+    // ID do app da Microsoft (login de contas originais), lido com option_env!
+    println!("cargo:rerun-if-env-changed=FORBIDDEN_MS_CLIENT_ID");
     tauri_build::build()
 }

@@ -99,7 +99,9 @@ interface SettingsStore {
   setAudio(channel: keyof AudioSettings, patch: Partial<ChannelSettings>): void
   toggleMod(id: string): string[]
   reset(): void
-  addAccount(a: Omit<Account, 'id' | 'addedAt' | 'skinDataUrl'>): Account
+  addAccount(a: Omit<Account, 'id' | 'addedAt' | 'skinDataUrl'> & { skinDataUrl?: string | null }): Account
+  /** Atualiza nick/skin (ex.: perfil Microsoft renovado). */
+  updateAccount(id: string, patch: Partial<Pick<Account, 'username' | 'skinDataUrl'>>): void
   removeAccount(id: string): void
   setActiveAccount(id: string): void
   setAccountSkin(id: string, skinDataUrl: string | null): void
@@ -213,13 +215,21 @@ export const useSettings = create<SettingsStore>((set, get) => {
     },
     addAccount(a) {
       const s = get().settings
-      const account: Account = { ...a, id: `${a.type}:${a.uuid}`, addedAt: Date.now(), skinDataUrl: null }
+      const account: Account = { ...a, id: `${a.type}:${a.uuid}`, addedAt: Date.now(), skinDataUrl: validSkin(a.skinDataUrl) }
       const accounts = [...s.accounts.filter((x) => x.id !== account.id), account]
       commit({ ...s, accounts, activeAccountId: account.id })
       return account
     },
+    updateAccount(id, patch) {
+      const s = get().settings
+      const clean = { ...patch, ...('skinDataUrl' in patch ? { skinDataUrl: validSkin(patch.skinDataUrl) } : {}) }
+      commit({ ...s, accounts: s.accounts.map((a) => (a.id === id ? { ...a, ...clean } : a)) })
+    },
     removeAccount(id) {
       const s = get().settings
+      // conta Microsoft: sai de verdade (apaga a sessão do cofre)
+      const gone = s.accounts.find((a) => a.id === id)
+      if (gone?.type === 'microsoft') void bridge.auth?.forget(gone.uuid).catch((e) => console.warn('[contas] não deu para apagar a sessão:', e))
       const accounts = s.accounts.filter((a) => a.id !== id)
       const activeAccountId = s.activeAccountId === id ? (accounts[0]?.id ?? null) : s.activeAccountId
       commit({ ...s, accounts, activeAccountId })
