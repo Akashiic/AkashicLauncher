@@ -30,6 +30,18 @@ fn launcher_version() -> &'static str {
     option_env!("FORBIDDEN_LAUNCHER_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
 }
 
+/// Identidade do launcher embutido (hash do conteúdo; vazio em desenvolvimento).
+const PAYLOAD_ID: &str = env!("FORBIDDEN_PAYLOAD_ID");
+
+/// Arquivo gravado pelo Setup depois de instalar: qual build ele instalou.
+fn build_marker() -> PathBuf {
+    install_dir().join(".forbidden-build")
+}
+
+fn installed_build() -> Option<String> {
+    std::fs::read_to_string(build_marker()).ok().map(|s| s.trim().to_string())
+}
+
 /// Pasta do Forbidden Series: %APPDATA%\.forbiddenseries (como o .minecraft e o .technic).
 fn root_dir() -> PathBuf {
     std::env::var_os("APPDATA")
@@ -128,10 +140,19 @@ fn decide() -> Mode {
     if forced {
         return Mode::Reinstall;
     }
-    match installed_version() {
-        // registro mais antigo que o launcher embutido: atualiza
-        Some(v) if parts(&v) < parts(launcher_version()) => Mode::Update,
-        // em dia (ou versão desconhecida: o próprio launcher se atualiza)
+    decide_installed(installed_version().as_deref(), installed_build().as_deref(), launcher_version(), PAYLOAD_ID)
+}
+
+/// Com o launcher instalado: atualiza ou só abre?
+/// - versão instalada mais nova que a deste Setup (o launcher se atualizou sozinho): só abre;
+/// - versão mais antiga: atualiza;
+/// - mesma versão, mas outra build (ex.: builds de teste, todas "0.1.0"): atualiza;
+/// - mesma build: só abre.
+fn decide_installed(installed: Option<&str>, installed_build: Option<&str>, embedded: &str, payload_id: &str) -> Mode {
+    match installed {
+        Some(v) if parts(v) > parts(embedded) => Mode::Launch,
+        Some(v) if parts(v) < parts(embedded) => Mode::Update,
+        _ if !payload_id.is_empty() && installed_build != Some(payload_id) => Mode::Update,
         _ => Mode::Launch,
     }
 }
@@ -140,6 +161,7 @@ fn decide() -> Mode {
 #[serde(rename_all = "camelCase")]
 struct SetupInfo {
     version: String,
+    build: String,
     mode: Mode,
     installed_version: Option<String>,
     install_dir: String,
@@ -149,6 +171,7 @@ struct SetupInfo {
 fn setup_info() -> SetupInfo {
     SetupInfo {
         version: launcher_version().to_string(),
+        build: PAYLOAD_ID.chars().take(7).collect(),
         mode: *MODE.get().unwrap_or(&Mode::Install),
         installed_version: installed_version(),
         install_dir: root_dir().display().to_string(),
@@ -214,6 +237,7 @@ fn run_install(app: &AppHandle, desktop_shortcut: Option<bool>) -> Result<String
     }
 
     let exe = installed_exe().ok_or("O launcher não foi encontrado depois da instalação.")?;
+    let _ = std::fs::write(build_marker(), PAYLOAD_ID);
     if let Some(desktop) = desktop_shortcut {
         progress(app, 92.0, "Criando atalhos");
         // atalho na área de trabalho conforme a escolha (a pasta real pode estar no OneDrive)
@@ -297,6 +321,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::parts;
+
+
+    #[test]
+    fn decide_atualizar_ou_abrir() {
+        use super::{decide_installed, Mode};
+        // mesma versão e mesma build: só abre
+        assert!(decide_installed(Some("0.1.0"), Some("aaa"), "0.1.0", "aaa") == Mode::Launch);
+        // mesma versão, build diferente (o caso das builds de teste): atualiza
+        assert!(decide_installed(Some("0.1.0"), Some("aaa"), "0.1.0", "bbb") == Mode::Update);
+        assert!(decide_installed(Some("0.1.0"), None, "0.1.0", "bbb") == Mode::Update);
+        // instalado mais antigo: atualiza; mais novo (auto-update): nunca volta
+        assert!(decide_installed(Some("0.1.0"), Some("aaa"), "0.2.0", "bbb") == Mode::Update);
+        assert!(decide_installed(Some("0.3.0"), Some("aaa"), "0.2.0", "bbb") == Mode::Launch);
+        // build de desenvolvimento (sem launcher embutido): não força nada
+        assert!(decide_installed(Some("0.1.0"), None, "0.1.0", "") == Mode::Launch);
+    }
 
     #[test]
     fn compara_versoes_numericamente() {

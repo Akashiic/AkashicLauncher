@@ -7,7 +7,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
@@ -247,7 +247,7 @@ fn milestone(line: &str) -> Option<f64> {
 }
 
 /// Inicia o jogo e acompanha até ele fechar (em segundo plano).
-pub async fn spawn(app: &AppHandle, cmd: Vec<String>, instance: PathBuf, progress: std::sync::Arc<Progress>, ticker: Ticker) -> Result<()> {
+pub async fn spawn<R: Runtime>(app: &AppHandle<R>, cmd: Vec<String>, instance: PathBuf, progress: std::sync::Arc<Progress>, ticker: Ticker, header: Vec<String>) -> Result<()> {
     let mut c = tokio::process::Command::new(&cmd[0]);
     c.args(&cmd[1..]).current_dir(&instance).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
@@ -282,6 +282,12 @@ pub async fn spawn(app: &AppHandle, cmd: Vec<String>, instance: PathBuf, progres
     tokio::spawn(async move {
         let _ = tokio::fs::create_dir_all(log_path.parent().unwrap()).await;
         let mut file = tokio::fs::File::create(&log_path).await.ok();
+        // cabeçalho: qual build do launcher e qual modpack (ajuda a diagnosticar pelo log)
+        if let Some(f) = file.as_mut() {
+            for h in &header {
+                let _ = f.write_all(format!("{h}\n").as_bytes()).await;
+            }
+        }
         let mut batch: Vec<String> = Vec::new();
         let mut last = Instant::now();
         let mut window_open = false;

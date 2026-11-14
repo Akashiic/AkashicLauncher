@@ -32,6 +32,10 @@ tar = "0.4"
 rand = "0.8"
 crc32fast = "1"
 
+# os testes de ponta a ponta usam o runtime de teste do Tauri (sem janela)
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
 # binário pequeno e rápido de carregar
 [profile.release]
 codegen-units = 1

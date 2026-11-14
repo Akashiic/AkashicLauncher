@@ -458,7 +458,8 @@ async fn apply_incremental(net: &Net, prog: &Arc<Progress>, instance: &Path, pac
 }
 
 async fn install_full(net: &Net, prog: &Arc<Progress>, instance: &Path, cache: &Path, pack: &PackInfo) -> Result<()> {
-    let zip_path = cache.join(format!("{}.zip", pack.tag));
+    // o nome inclui o tamanho: um .part de outro anexo da mesma tag nunca é "retomado"
+    let zip_path = cache.join(format!("{}-{}.zip", pack.tag, pack.size.unwrap_or(0)));
     prog.set_current(format!("{}.zip", pack.tag));
     net.fetch_resumable(&pack.url, &zip_path, pack.size, pack.sha256.as_deref(), prog)
         .await
@@ -549,6 +550,49 @@ fn extract(net: &Net, prog: &Progress, zip_path: &Path, instance: &Path, tag: &s
     write_state(instance, &InstalledPack { tag: tag.to_string(), layout: LAYOUT, entries: records, files: Vec::new() })
 }
 
+/// Para os testes que acessam a rede: o release TEOF mais novo PUBLICADO e o
+/// anexo que o launcher escolhe (mesma regra de src/lib/modpack.ts → pickAsset).
+#[cfg(test)]
+pub(crate) async fn latest_published_pack() -> (PackInfo, Vec<serde_json::Value>) {
+    let client = reqwest::Client::builder().user_agent(super::net::USER_AGENT).build().unwrap();
+    let mut req = client
+        .get("https://api.github.com/repos/Akashiic/Technic-Forbidden/releases?per_page=100")
+        .header("Accept", "application/vnd.github+json");
+    if let Ok(t) = std::env::var("GITHUB_TOKEN") {
+        req = req.bearer_auth(t);
+    }
+    let body = req.send().await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
+    let releases: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
+    let version = |t: &str| -> Option<Vec<u64>> { t.strip_prefix("TEOF-")?.split('.').map(|p| p.parse().ok()).collect() };
+    let latest = releases
+        .iter()
+        .filter(|r| !r["draft"].as_bool().unwrap_or(true) && !r["prerelease"].as_bool().unwrap_or(true))
+        .filter_map(|r| Some((version(r["tag_name"].as_str()?)?, r)))
+        .max_by(|a, b| a.0.cmp(&b.0))
+        .map(|(_, r)| r.clone())
+        .expect("nenhum release TEOF- publicado");
+    let tag = latest["tag_name"].as_str().unwrap().to_string();
+    let zips: Vec<serde_json::Value> = latest["assets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|a| a["name"].as_str().is_some_and(|n| n.to_lowercase().ends_with(".zip")))
+        .cloned()
+        .collect();
+    let name = |a: &serde_json::Value| a["name"].as_str().unwrap_or_default().to_lowercase();
+    let variant = |n: &str| ["manual", "server", "servidor", "source", "src"].iter().any(|k| n.contains(k));
+    let asset = zips
+        .iter()
+        .find(|a| name(a) == format!("{}.zip", tag.to_lowercase()))
+        .or_else(|| zips.iter().filter(|a| !variant(&name(a))).max_by_key(|a| a["size"].as_u64().unwrap_or(0)))
+        .or_else(|| zips.iter().max_by_key(|a| a["size"].as_u64().unwrap_or(0)))
+        .expect("o release não tem anexo .zip")
+        .clone();
+    let sha256 = asset["digest"].as_str().and_then(|d| d.strip_prefix("sha256:")).map(str::to_string);
+    let pack = PackInfo { tag, url: asset["browser_download_url"].as_str().unwrap().to_string(), size: asset["size"].as_u64(), sha256 };
+    (pack, zips)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -600,49 +644,17 @@ mod tests {
     #[ignore = "acessa a rede: roda no workflow 'Modpack publicado'"]
     async fn release_mais_novo_tem_formato_que_o_launcher_entende() {
         use std::sync::atomic::AtomicBool;
-        let client = reqwest::Client::builder().user_agent(super::super::net::USER_AGENT).build().unwrap();
-        let mut req = client
-            .get("https://api.github.com/repos/Akashiic/Technic-Forbidden/releases?per_page=100")
-            .header("Accept", "application/vnd.github+json");
-        if let Ok(t) = std::env::var("GITHUB_TOKEN") {
-            req = req.bearer_auth(t);
-        }
-        let body = req.send().await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
-        let releases: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
-        let version = |t: &str| -> Option<Vec<u64>> { t.strip_prefix("TEOF-")?.split('.').map(|p| p.parse().ok()).collect() };
-        let latest = releases
-            .iter()
-            .filter(|r| !r["draft"].as_bool().unwrap_or(true) && !r["prerelease"].as_bool().unwrap_or(true))
-            .filter_map(|r| Some((version(r["tag_name"].as_str()?)?, r)))
-            .max_by(|a, b| a.0.cmp(&b.0))
-            .map(|(_, r)| r)
-            .expect("nenhum release TEOF- publicado");
-        let tag = latest["tag_name"].as_str().unwrap();
-        println!("Release mais novo: {tag}");
-        for a in latest["assets"].as_array().unwrap() {
+        let (pack, zips) = latest_published_pack().await;
+        println!("Release mais novo: {}", pack.tag);
+        for a in &zips {
             println!("  anexo: {} ({} bytes)", a["name"], a["size"]);
         }
-        // mesma regra da interface (src/lib/modpack.ts → pickAsset)
-        let zips: Vec<&serde_json::Value> = latest["assets"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|a| a["name"].as_str().is_some_and(|n| n.to_lowercase().ends_with(".zip")))
-            .collect();
-        let name = |a: &serde_json::Value| a["name"].as_str().unwrap_or_default().to_lowercase();
-        let variant = |n: &str| ["manual", "server", "servidor", "source", "src"].iter().any(|k| n.contains(k));
-        let asset = zips
-            .iter()
-            .find(|a| name(a) == format!("{}.zip", tag.to_lowercase()))
-            .or_else(|| zips.iter().filter(|a| !variant(&name(a))).max_by_key(|a| a["size"].as_u64().unwrap_or(0)))
-            .or_else(|| zips.iter().max_by_key(|a| a["size"].as_u64().unwrap_or(0)))
-            .expect("o release não tem anexo .zip");
-        println!("Anexo escolhido pelo launcher: {}", asset["name"]);
-        let url = asset["browser_download_url"].as_str().unwrap();
+        println!("Anexo escolhido pelo launcher: {}", pack.url.rsplit('/').next().unwrap_or_default());
+        let url = pack.url.as_str();
 
         // para diagnóstico: a estrutura dos outros .zip do release
         let net_info = Net::new(Arc::new(AtomicBool::new(false))).unwrap();
-        for other in zips.iter().filter(|a| a["name"] != asset["name"]) {
+        for other in zips.iter().filter(|a| a["browser_download_url"].as_str() != Some(url)) {
             if let Ok(idx) = zipremote::read_index(&net_info, other["browser_download_url"].as_str().unwrap()).await {
                 let names: Vec<String> = idx.entries.iter().filter(|e| !e.is_dir).filter_map(|e| safe_rel(&e.name)).collect();
                 let mut tops: Vec<String> = names.iter().map(|n| n.split('/').take(2).collect::<Vec<_>>().join("/")).collect();

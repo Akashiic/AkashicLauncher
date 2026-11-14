@@ -9,7 +9,7 @@ use std::sync::{
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Runtime};
 
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -129,7 +129,7 @@ pub struct Ticker {
 }
 
 impl Ticker {
-    pub fn start(app: AppHandle, progress: Arc<Progress>) -> Self {
+    pub fn start<R: Runtime>(app: AppHandle<R>, progress: Arc<Progress>) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
         tauri::async_runtime::spawn(async move {

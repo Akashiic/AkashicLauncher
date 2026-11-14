@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tokio::sync::oneshot;
 
 use net::Net;
@@ -47,13 +47,13 @@ pub struct Paths {
 
 /// Pasta do Forbidden Series: %APPDATA%\.forbiddenseries no Windows
 /// (como o .minecraft e o .technic); ~/.local/share/.forbiddenseries no Linux.
-pub fn data_root(app: &AppHandle) -> Result<PathBuf> {
+pub fn data_root<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf> {
     Ok(app.path().data_dir()?.join(".forbiddenseries"))
 }
 
 /// Primeira abertura depois da mudança de pasta: move os dados da pasta antiga
 /// (com o nome do identificador do app) para a .forbiddenseries.
-pub fn migrate_data(app: &AppHandle) {
+pub fn migrate_data<R: Runtime>(app: &AppHandle<R>) {
     let (Ok(old), Ok(new)) = (app.path().app_data_dir(), data_root(app)) else { return };
     if old == new || !old.exists() {
         return;
@@ -69,7 +69,7 @@ pub fn migrate_data(app: &AppHandle) {
     }
 }
 
-pub fn paths(app: &AppHandle) -> Result<Paths> {
+pub fn paths<R: Runtime>(app: &AppHandle<R>) -> Result<Paths> {
     let data = data_root(app)?;
     Ok(Paths {
         mc: data.join("minecraft"),
@@ -91,7 +91,7 @@ pub struct PlayRequest {
     pack: Option<modpack::PackInfo>,
 }
 
-fn log(app: &AppHandle, s: impl AsRef<str>) {
+fn log<R: Runtime>(app: &AppHandle<R>, s: impl AsRef<str>) {
     let _ = app.emit("launch:logs", vec![format!("[Launcher] {}", s.as_ref())]);
 }
 
@@ -113,7 +113,7 @@ fn begin<'a>(state: &'a GameState) -> Result<Busy<'a>, String> {
     Ok(Busy(&state.busy))
 }
 
-fn report(app: &AppHandle, e: anyhow::Error) -> String {
+fn report<R: Runtime>(app: &AppHandle<R>, e: anyhow::Error) -> String {
     if net::is_cancelled(&e) {
         return "cancelado".into();
     }
@@ -132,9 +132,15 @@ pub async fn game_play(app: AppHandle, state: State<'_, GameState>, req: PlayReq
     play(&app, &state, req, progress, ticker).await.map_err(|e| report(&app, e))
 }
 
-async fn play(app: &AppHandle, state: &GameState, req: PlayRequest, prog: Arc<Progress>, ticker: Ticker) -> Result<()> {
+/// Versão e build do launcher, para o log ("Launcher v0.1.0 · build 0a8e022").
+pub fn build_label() -> String {
+    format!("Forbidden Series Launcher v{} · build {}", env!("CARGO_PKG_VERSION"), env!("FORBIDDEN_BUILD"))
+}
+
+async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayRequest, prog: Arc<Progress>, ticker: Ticker) -> Result<()> {
     let p = paths(app)?;
     let net = Net::new(state.cancel.clone())?;
+    log(app, build_label());
 
     // 1) Java
     prog.stage("verifying", "Java 8 (Zulu 8u512)");
@@ -266,7 +272,11 @@ async fn play(app: &AppHandle, state: &GameState, req: PlayRequest, prog: Arc<Pr
     log(app, format!("Perfil: {} ({})", req.account.username, req.account.kind));
     log(app, launch::redact(&cmd));
     state.running.store(true, Ordering::Relaxed);
-    if let Err(e) = launch::spawn(app, cmd, p.instance.clone(), prog.clone(), ticker).await {
+    let header = vec![
+        format!("[Launcher] {}", build_label()),
+        format!("[Launcher] Modpack {} · {mod_count} mod(s) em mods/ · Forge {}", modpack::installed(&p.instance).map(|i| i.tag).unwrap_or_default(), if pack_forge { "do modpack" } else { "oficial" }),
+    ];
+    if let Err(e) = launch::spawn(app, cmd, p.instance.clone(), prog.clone(), ticker, header).await {
         state.running.store(false, Ordering::Relaxed);
         return Err(e);
     }
@@ -343,4 +353,78 @@ pub async fn game_verify(app: AppHandle, state: State<'_, GameState>, pack: Opti
     }
     .await
     .map_err(|e| report(&app, e))
+}
+
+/// Teste de ponta a ponta: o mesmo fluxo do botão JOGAR, com o release TEOF real.
+/// Roda no workflow "Teste completo" (rede + tela virtual), não no `cargo test` comum.
+#[cfg(test)]
+mod e2e {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[ignore = "baixa ~1 GB e abre o Minecraft: roda no workflow 'Teste completo'"]
+    async fn jogar_instala_o_pack_e_o_forge_encontra_os_mods() {
+        let app = tauri::test::mock_builder()
+            .manage(GameState::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("app de teste");
+        let handle = app.handle().clone();
+        let (pack, _) = modpack::latest_published_pack().await;
+        println!("{}", build_label());
+        println!("Pack: {} ({:?} bytes)", pack.tag, pack.size);
+
+        let req = PlayRequest {
+            account: launch::Account { username: "CI_Tester".into(), uuid: "6c6f6361-6c00-3000-8000-000000000001".into(), kind: "offline".into() },
+            memory_gb: 4,
+            jvm_args: Vec::new(),
+            java_path: None,
+            pack: Some(pack.clone()),
+        };
+        let state = handle.state::<GameState>();
+        let progress = Arc::new(Progress::default());
+        let ticker = Ticker::start(handle.clone(), progress.clone());
+        let started = Instant::now();
+        play(&handle, &state, req, progress, ticker).await.expect("o JOGAR falhou");
+        println!("Java + Minecraft + modpack prontos e jogo iniciado em {:?}", started.elapsed());
+
+        // arquivos no lugar certo
+        let p = paths(&handle).unwrap();
+        let (mods, pack_forge) = modpack::layout_report(&p.instance);
+        println!("Na pasta do jogo: {mods} mod(s) em mods/ · Forge do pack: {pack_forge}");
+        assert!(mods >= 50, "poucos mods em mods/: {mods}");
+        assert!(pack_forge, "o bin/modpack.jar do pack não está na pasta do jogo");
+
+        // o Forge precisa identificar os mods do pack (o Forge puro mostra só 3)
+        let log = p.instance.join("logs").join("launcher-latest.log");
+        let deadline = Instant::now() + Duration::from_secs(600);
+        let mut identified: Option<usize> = None;
+        while Instant::now() < deadline && identified.is_none() {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            let text = std::fs::read_to_string(&log).unwrap_or_default();
+            identified = text.lines().find_map(|l| {
+                let i = l.find("has identified ")?;
+                l[i + 15..].split_whitespace().next()?.parse().ok()
+            });
+            if !state.running.load(Ordering::Relaxed) {
+                break;
+            }
+        }
+        let text = std::fs::read_to_string(&log).unwrap_or_default();
+        println!("---- início do launcher-latest.log ----");
+        for l in text.lines().take(12) {
+            println!("{l}");
+        }
+        println!("---- fim do launcher-latest.log ----");
+        for l in text.lines().rev().take(25).collect::<Vec<_>>().into_iter().rev() {
+            println!("{l}");
+        }
+        if let Some(tx) = state.kill.lock().unwrap().take() {
+            let _ = tx.send(());
+        }
+        let identified = identified.expect("o Forge não chegou a identificar os mods (veja o log acima)");
+        println!("Forge identificou {identified} mods (pasta mods/ tem {mods} arquivos)");
+        assert!(identified > 3 + mods / 2, "o Forge identificou só {identified} mods: o pack não foi carregado");
+        assert!(text.contains(&build_label()), "o log não mostra a build do launcher");
+    }
 }

@@ -28,7 +28,7 @@ async function init() {
   try {
     const info = await invoke('setup_info')
     mode = info.mode
-    $('version').textContent = `Launcher v${info.version}`
+    $('version').textContent = `Launcher v${info.version}${info.build ? ` · build ${info.build}` : ''}`
     $('where').textContent = `Pasta: ${info.installDir}`
     if (mode === 'reinstall' || mode === 'launch') {
       $('title').textContent = 'Reinstalar'
