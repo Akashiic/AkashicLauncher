@@ -13,5 +13,23 @@ fn main() {
     println!("cargo:rerun-if-env-changed=GITHUB_SHA");
     // ID do app da Microsoft (login de contas originais), lido com option_env!
     println!("cargo:rerun-if-env-changed=FORBIDDEN_MS_CLIENT_ID");
-    tauri_build::build()
+    tauri_build::try_build(attributes()).expect("falha no tauri-build");
+}
+
+/// No Windows (MSVC) o manifesto do app (controles comuns v6) vai pelo linker
+/// para TODOS os executáveis, inclusive os de teste. Pelo recurso padrão do
+/// tauri-build só o app recebia, e os testes no Windows nem abriam
+/// (STATUS_ENTRYPOINT_NOT_FOUND). É o mesmo jeito que o próprio Tauri usa nos
+/// testes dele. O Release confere se o .exe final saiu com o manifesto.
+fn attributes() -> tauri_build::Attributes {
+    let attrs = tauri_build::Attributes::new();
+    let target = |k: &str| std::env::var(k).unwrap_or_default();
+    if target("CARGO_CFG_TARGET_OS") != "windows" || target("CARGO_CFG_TARGET_ENV") != "msvc" {
+        return attrs;
+    }
+    let manifest = std::path::Path::new(&target("CARGO_MANIFEST_DIR")).join("windows-app-manifest.xml");
+    println!("cargo:rerun-if-changed={}", manifest.display());
+    println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+    println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
+    attrs.windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest())
 }

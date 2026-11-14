@@ -168,6 +168,18 @@ jobs:
           # shellcheck disable=SC2086
           npx tauri build --bundles nsis $ARGS
 
+      # o manifesto (controles comuns v6) vai pelo linker (src-tauri/build.rs):
+      # sem ele o launcher nem abre no Windows, então a build para aqui
+      - name: Confere o manifesto do launcher
+        shell: bash
+        run: |
+          exe=src-tauri/target/release/forbidden-launcher.exe
+          if ! grep -q "Microsoft.Windows.Common-Controls" "$exe"; then
+            echo "::error::$exe saiu sem o manifesto do Windows"
+            exit 1
+          fi
+          echo "Manifesto presente em $exe"
+
       # instalador com o visual da marca, com o instalador oficial embutido
       # (o oficial continua no release: é ele que a atualização automática usa)
       - name: Instalador com o visual da marca
