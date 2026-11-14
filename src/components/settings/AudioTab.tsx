@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Music2, MousePointerClick, Wind, Leaf, Play, RotateCcw, FileJson } from 'lucide-react'
+import { Volume2, VolumeX, Music2, MousePointerClick, Wind, Leaf, Play, RotateCcw, FileJson, Sparkles } from 'lucide-react'
 import { useSettings } from '@/store/settings'
 import type { AudioSettings } from '@/audio/AudioManager'
 import { audio } from '@/audio/AudioManager'
@@ -66,6 +66,12 @@ export function AudioTab() {
           <div className="flex items-center gap-3">
             <Leaf size={16} className={s.ecoMode ? 'text-success' : 'text-subtle'} />
             <Switch checked={s.ecoMode} label="Modo economia" onChange={(ecoMode) => update({ ecoMode })} />
+          </div>
+        </Row>
+        <Row title="Seguir as animações do Windows" desc="Com os efeitos de animação desligados no Windows, o launcher também fica sem movimento. Desligue para manter as animações do launcher.">
+          <div className="flex items-center gap-3">
+            <Sparkles size={16} className={s.followSystemMotion ? 'text-subtle' : 'text-accent-strong'} />
+            <Switch checked={s.followSystemMotion} label="Seguir as animações do Windows" onChange={(followSystemMotion) => update({ followSystemMotion })} />
           </div>
         </Row>
       </Section>

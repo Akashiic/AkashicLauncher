@@ -252,45 +252,10 @@ textarea {
 }
 
 /* ------------------------- Botão JOGAR ------------------------- */
-/* A borda é o próprio botão: o fundo dele tem a cor da borda, o feixe de energia
-   gira por cima e o miolo fica 2 px para dentro. Borda e feixe são o mesmo
-   elemento, então nunca se desencontram, e o feixe só gira (transform): não
-   repinta nada a cada quadro. */
+/* O fundo do botão é a cor da borda e o miolo fica 2 px para dentro. */
 .play-shell {
   padding: 2px;
   isolation: isolate;
-}
-.play-beam {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 150%;
-  aspect-ratio: 1;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    transparent 200deg,
-    var(--accent-strong) 280deg,
-    var(--scene-portal-hot) 318deg,
-    var(--accent-strong) 340deg,
-    transparent 360deg
-  );
-  transform: translate(-50%, -50%);
-  animation: beam-spin 3.6s linear infinite;
-  will-change: transform;
-  pointer-events: none;
-  z-index: 0;
-}
-.play-beam.beam-fast {
-  animation-duration: 1.4s;
-}
-@keyframes beam-spin {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
 }
 .play-core {
   position: relative;
@@ -302,6 +267,55 @@ textarea {
   overflow: hidden;
   border-radius: 10px;
   padding: 0 16px;
+}
+/* Energia correndo pela borda: um cometa que segue o contorno (SVG com
+   pathLength=100) sempre na mesma velocidade, inclusive nos cantos.
+   Cada traço começa com um traço de tamanho zero, então todas as camadas
+   têm a ponta no mesmo lugar e usam a mesma animação. */
+.play-trail {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+.play-trail path {
+  fill: none;
+  /* o traço de tamanho zero cai na ponta do cometa, então a ponta arredondada não sobra */
+  stroke-linecap: round;
+  stroke-dashoffset: 0;
+  animation: trail-run 3.4s linear infinite;
+}
+/* segundo cometa (carregando): meia volta à frente */
+.play-trail .trail-b path {
+  animation-delay: -1.7s;
+}
+.trail-glow {
+  stroke: var(--accent-strong);
+  stroke-width: 8;
+  stroke-opacity: 0.26;
+  stroke-dasharray: 0 74 26 0;
+}
+.trail-tail {
+  stroke: var(--accent-strong);
+  stroke-width: 2.5;
+  stroke-opacity: 0.6;
+  stroke-dasharray: 0 64 36 0;
+}
+.trail-body {
+  stroke: var(--accent-strong);
+  stroke-width: 3;
+  stroke-dasharray: 0 82 18 0;
+}
+.trail-head {
+  stroke: var(--scene-portal-hot);
+  stroke-width: 3;
+  stroke-dasharray: 0 93 7 0;
+}
+@keyframes trail-run {
+  to {
+    stroke-dashoffset: -100;
+  }
 }
 /* lava viva dentro do botão */
 .play-lava {
@@ -363,7 +377,7 @@ textarea {
   background: var(--scene-portal-hot);
   box-shadow: 0 0 6px var(--accent-strong), 0 0 12px var(--accent);
   opacity: 0;
-  animation: ember-rise 1.7s ease-out infinite;
+  animation: ember-rise 2.4s ease-out infinite;
 }
 @keyframes ember-rise {
   0% {
@@ -392,17 +406,19 @@ textarea {
 html.eco .shimmer::after,
 html.eco .pulse-ring,
 html.eco .progress-stripes,
-html.eco .play-beam,
+html.eco .play-trail path,
 html.eco .play-lava,
 html.eco .play-ember {
   animation: none !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+/* Modo parado (Windows sem animações; ver src/lib/motion.ts). Só encurtar a
+   duração não basta: uma animação infinita de 0,01 ms mostra uma posição
+   aleatória a cada quadro, e tudo pisca. Uma volta só e para. */
+html.calm *,
+html.calm *::before,
+html.calm *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

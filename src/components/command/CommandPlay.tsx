@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Play, Loader2, Lock, Download } from 'lucide-react'
 import { useLaunch } from '@/store/launch'
 import { useServer } from '@/store/server'
@@ -28,10 +28,52 @@ const fmtTime = (s: number) => (s < 60 ? `${Math.ceil(s)}s` : `${Math.floor(s / 
 // brasas pixeladas (posições fixas, atrasos escalonados)
 const EMBERS = Array.from({ length: 14 }, (_, i) => ({
   left: `${6 + ((i * 53) % 88)}%`,
-  delay: `${((i * 0.41) % 1.7).toFixed(2)}s`,
+  delay: `${((i * 0.57) % 2.4).toFixed(2)}s`,
   dx: `${((i * 37) % 34) - 17}px`,
   size: i % 3 === 0 ? 5 : 4,
 }))
+
+/** Tamanho do elemento em pixels de layout (não muda com transform), acompanhando redimensionamentos. */
+function useBox<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [box, setBox] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const read = () => setBox((b) => (b.w === el.offsetWidth && b.h === el.offsetHeight ? b : { w: el.offsetWidth, h: el.offsetHeight }))
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return [ref, box] as const
+}
+
+/**
+ * Energia correndo pela borda do JOGAR: um cometa que segue o contorno arredondado
+ * sempre na mesma velocidade (o desenho é do tamanho exato do botão). Carregando,
+ * são dois cometas, um em cada lado.
+ */
+function EnergyTrail({ w, h, double }: { w: number; h: number; double: boolean }) {
+  if (w < 40 || h < 30) return null
+  // linha no meio da borda de 2 px; raio 11 = 12 (rounded-xl) menos 1
+  const r = 11
+  const [x0, y0, x1, y1] = [1, 1, w - 1, h - 1]
+  const d = `M${x0 + r} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}Z`
+  const comet = (key: string) => (
+    <g key={key} className={key}>
+      {['trail-glow', 'trail-tail', 'trail-body', 'trail-head'].map((c) => (
+        <path key={c} d={d} pathLength={100} className={c} />
+      ))}
+    </g>
+  )
+  return (
+    <svg className="play-trail" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      {comet('trail-a')}
+      {double && comet('trail-b')}
+    </svg>
+  )
+}
 
 const SERVER = {
   online: { label: 'Online', dot: 'bg-success', text: 'text-success' },
@@ -53,20 +95,7 @@ export function CommandPlay() {
   const { playHover, setPlayHover, firePulse } = useFx()
   const elapsed = useElapsed(sessionStart, phase === 'running')
   const [shock, setShock] = useState(0)
-  // efeito magnético: o botão é levemente puxado em direção ao cursor
-  const mx = useMotionValue(0)
-  const my = useMotionValue(0)
-  const sx = useSpring(mx, { stiffness: 220, damping: 18 })
-  const sy = useSpring(my, { stiffness: 220, damping: 18 })
-  const magnet = (e: React.MouseEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    mx.set(((e.clientX - r.left) / r.width - 0.5) * 12)
-    my.set(((e.clientY - r.top) / r.height - 0.5) * 8)
-  }
-  const unmagnet = () => {
-    mx.set(0)
-    my.set(0)
-  }
+  const [buttonRef, box] = useBox<HTMLButtonElement>()
 
   const blocked = phase === 'ready' && server !== 'online'
   const ready = phase === 'ready' && !blocked
@@ -138,8 +167,8 @@ export function CommandPlay() {
 
   return (
     <div className="flex flex-col">
-      {/* will-change: o deslocamento magnético move uma camada pronta, sem redesenhar o texto a cada quadro */}
-      <motion.div style={{ x: sx, y: sy, willChange: 'transform' }} onMouseMove={magnet} onMouseLeave={unmagnet} className={cn('relative rounded-xl', hot && 'play-hot')}>
+      {/* o clique encolhe tudo junto (botão, borda e energia), então nada se desencontra */}
+      <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 420, damping: 22 }} className={cn('relative rounded-xl', hot && 'play-hot')}>
         {/* brasas subindo (fora do botão para não serem cortadas) */}
         <div className="play-embers" aria-hidden>
           {EMBERS.map((e, i) => (
@@ -162,7 +191,8 @@ export function CommandPlay() {
           )}
         </AnimatePresence>
 
-        <motion.button
+        <button
+          ref={buttonRef}
           onClick={activate}
           onMouseEnter={() => {
             audio.play('hover')
@@ -171,8 +201,6 @@ export function CommandPlay() {
           onMouseLeave={() => setPlayHover(false)}
           onFocus={() => ready && setPlayHover(true)}
           onBlur={() => setPlayHover(false)}
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: 'spring', stiffness: 420, damping: 22 }}
           aria-live="polite"
           aria-disabled={blocked || undefined}
           className={cn(
@@ -184,9 +212,6 @@ export function CommandPlay() {
             live && 'bg-success',
           )}
         >
-          {/* energia girando pela borda (no mesmo elemento da borda: nunca desencontra) */}
-          {(ready || busy) && <span className={cn('play-beam', busy && 'beam-fast')} aria-hidden />}
-
           <span className={cn('play-core transition-colors duration-300', ready ? 'bg-brand' : 'bg-surface-2', live && 'group-hover:bg-surface')}>
             {ready && <span className="play-lava" aria-hidden />}
             <span className="play-pixels" aria-hidden />
@@ -227,7 +252,9 @@ export function CommandPlay() {
               </motion.span>
             </AnimatePresence>
           </span>
-        </motion.button>
+        </button>
+
+        {(ready || busy) && <EnergyTrail w={box.w} h={box.h} double={busy} />}
       </motion.div>
 
       {/* linha de contexto: status do servidor quando parado, progresso/sessão quando ativo */}

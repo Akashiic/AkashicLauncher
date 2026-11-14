@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { animate, motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import { useFx } from '@/store/fx'
 import { useSettings } from '@/store/settings'
+import { systemReducesMotion } from '@/lib/motion'
 import { audio } from '@/audio/AudioManager'
 import { Logo } from '@/components/ui/Logo'
 import { EASE } from '@/lib/cn'
@@ -22,8 +23,8 @@ export function Intro() {
   const mask = useMotionTemplate`radial-gradient(circle at ${PORTAL_AT}, transparent ${hole}%, black calc(${hole}% + 14%))`
 
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (eco || reduced) {
+    // a abertura roda antes de ler as configurações: segue o Windows direto
+    if (eco || systemReducesMotion()) {
       setStage('done')
       setIntroDone(true)
       return

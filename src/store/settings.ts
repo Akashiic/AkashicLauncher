@@ -36,6 +36,8 @@ export interface Settings {
   minimap: Minimap
   audio: AudioSettings
   ecoMode: boolean
+  /** Com as animações do Windows desligadas, o launcher também fica parado. */
+  followSystemMotion: boolean
   profileId: string
   /** Perfis de jogador (obrigatório ter ao menos um para jogar). */
   accounts: Account[]
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   minimap: 'journeymap',
   audio: { master: ch(0.8), bgm: ch(0.45), sfx: ch(0.7), sbfx: ch(0.5) },
   ecoMode: false,
+  followSystemMotion: true,
   profileId: 'survival',
   accounts: [],
   activeAccountId: null,
@@ -135,6 +138,7 @@ function merge(raw: unknown): Settings {
     modpackVersion: typeof r.modpackVersion === 'string' && /^\d+(\.\d+)*$/.test(r.modpackVersion) ? r.modpackVersion : null,
     accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
+    followSystemMotion: typeof r.followSystemMotion === 'boolean' ? r.followSystemMotion : d.followSystemMotion,
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }
 }

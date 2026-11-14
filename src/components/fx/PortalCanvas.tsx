@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
+import { useCalm } from '@/lib/motion'
 import { useSettings } from '@/store/settings'
 import { useLaunch } from '@/store/launch'
 import { useFx } from '@/store/fx'
@@ -21,6 +22,7 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
   const sceneRef = useRef<PortalScene | null>(null)
   const [visible, setVisible] = useState(false)
   const eco = useSettings((s) => s.settings.ecoMode)
+  const calm = useCalm()
   const gameRunning = useLaunch((s) => s.phase === 'running')
 
   // criação / destruição
@@ -92,11 +94,10 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
 
   // rodar, pausar ou congelar
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
     const apply = () => {
       const s = sceneRef.current
       if (!s) return
-      const frozen = eco || reduced.matches
+      const frozen = eco || calm
       if (frozen) {
         s.stop()
         s.renderAt(8, true)
@@ -115,14 +116,12 @@ export function PortalCanvas({ onUnavailable }: { onUnavailable: () => void }) {
     apply()
     window.addEventListener('portal:ready', apply)
     document.addEventListener('visibilitychange', apply)
-    reduced.addEventListener('change', apply)
     return () => {
       window.removeEventListener('portal:ready', apply)
       document.removeEventListener('visibilitychange', apply)
-      reduced.removeEventListener('change', apply)
       window.clearTimeout(pauseTimer)
     }
-  }, [eco, gameRunning])
+  }, [eco, calm, gameRunning])
 
   return (
     <motion.canvas
