@@ -225,6 +225,20 @@ async fn play(app: &AppHandle, state: &GameState, req: PlayRequest, prog: Arc<Pr
         },
     }
 
+    // resumo para o log: um pack sem mods nunca passa em silêncio
+    let (mod_count, pack_forge) = modpack::layout_report(&p.instance);
+    log(app, format!(
+        "Modpack: {mod_count} mod(s) em mods/ · Forge {}",
+        if pack_forge { "do modpack (bin/modpack.jar)" } else { "oficial 10.13.4.1614 (o pack não trouxe bin/modpack.jar)" }
+    ));
+    if mod_count == 0 {
+        let _ = app.emit("launch:notice", serde_json::json!({
+            "kind": "warning",
+            "title": "Nenhum mod encontrado",
+            "body": "A pasta mods/ do jogo está vazia. Use \"Verificar arquivos\" nas configurações ou avise a equipe: o .zip do release pode estar num formato diferente.",
+        }));
+    }
+
     // 4) Forge e bibliotecas
     prog.stage(phase, "Forge 1.7.10");
     let forge = forge::plan(&net, &prog, &p.mc, &p.instance).await?;

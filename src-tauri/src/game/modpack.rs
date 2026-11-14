@@ -41,10 +41,16 @@ pub struct FileRec {
     pub size: u64,
 }
 
+/// Versão da regra que decide onde os arquivos do .zip vão parar. Instalações
+/// feitas com uma regra mais antiga são reinstaladas do zero no próximo JOGAR.
+const LAYOUT: u32 = 2;
+
 /// Estado do pack instalado (`instances/forbidden/.forbidden/pack.json`).
 #[derive(Serialize, Deserialize, Default)]
 pub struct InstalledPack {
     pub tag: String,
+    #[serde(default)]
+    pub layout: u32,
     #[serde(default)]
     pub entries: Vec<FileRec>,
     /// formato antigo (só caminhos), lido para remover arquivos numa atualização
@@ -111,26 +117,58 @@ fn safe_rel(name: &str) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join("/"))
 }
 
-/// Se tudo estiver dentro de uma única pasta (ex.: "TEOF-5.3/mods/..."), remove essa pasta.
-fn common_prefix(names: &[String]) -> Option<String> {
-    let known = ["mods/", "config/", "bin/", "scripts/", "resources/", "resourcepacks/"];
-    if names.iter().any(|n| known.iter().any(|k| n.starts_with(k))) {
-        return None;
+/// Lixo de sistema que às vezes vem dentro do .zip.
+fn is_junk(rel: &str) -> bool {
+    rel.starts_with("__MACOSX/") || rel.ends_with(".DS_Store") || rel.ends_with("Thumbs.db") || rel.ends_with("desktop.ini")
+}
+
+/// Onde fica a "pasta do jogo" dentro do .zip, para remover o que vem antes.
+///
+/// Procura a pasta que contém `mods/` (a mais rasa, preferindo a que também tem
+/// `bin/modpack.jar` ou `config/`). Funciona com o pack na raiz, dentro de
+/// `.minecraft/`, de `TEOF-5.3/.minecraft/` etc. Sem `mods/`, usa a pasta do
+/// `bin/modpack.jar`; sem os dois, remove uma pasta raiz única, se houver.
+fn pack_root(names: &[String]) -> Option<String> {
+    let names: Vec<&String> = names.iter().filter(|n| !is_junk(n)).collect();
+    let mut candidates: Vec<String> = Vec::new();
+    for n in &names {
+        let idx = if n.starts_with("mods/") { Some(0) } else { n.find("/mods/").map(|i| i + 1) };
+        if let Some(i) = idx {
+            let prefix = n[..i].to_string();
+            if !candidates.contains(&prefix) {
+                candidates.push(prefix);
+            }
+        }
+    }
+    let marker = |p: &str| names.iter().any(|n| n.starts_with(&format!("{p}bin/modpack.jar")) || n.starts_with(&format!("{p}config/")));
+    if let Some(best) = candidates.iter().min_by_key(|p| (!marker(p), p.matches('/').count(), p.len())) {
+        return Some(best.clone());
+    }
+    if let Some(n) = names.iter().find(|n| n.ends_with("bin/modpack.jar")) {
+        return Some(n[..n.len() - "bin/modpack.jar".len()].to_string());
     }
     let first = names.first()?.split('/').next()?.to_string();
     let prefix = format!("{first}/");
     names.iter().all(|n| n.starts_with(&prefix)).then_some(prefix)
 }
 
+/// Resumo do pack instalado para o log: quantos mods e de onde vem o Forge.
+pub fn layout_report(instance: &Path) -> (usize, bool) {
+    let mods = std::fs::read_dir(instance.join("mods"))
+        .map(|rd| rd.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "jar" || x == "zip")).count())
+        .unwrap_or(0);
+    (mods, instance.join("bin").join("modpack.jar").is_file())
+}
+
 /// Mapeia as entradas do .zip para caminhos dentro da pasta do jogo.
 fn map_entries(entries: Vec<Entry>) -> Vec<(String, Entry)> {
     let files: Vec<Entry> = entries.into_iter().filter(|e| !e.is_dir).collect();
     let names: Vec<String> = files.iter().filter_map(|e| safe_rel(&e.name)).collect();
-    let prefix = common_prefix(&names);
+    let prefix = pack_root(&names);
     files
         .into_iter()
         .filter_map(|e| {
-            let rel = safe_rel(&e.name)?;
+            let rel = safe_rel(&e.name).filter(|r| !is_junk(r))?;
             let rel = match &prefix {
                 Some(p) => rel.strip_prefix(p.as_str())?.to_string(),
                 None => rel,
@@ -219,7 +257,8 @@ pub async fn plan(net: &Net, instance: &Path, pack: &PackInfo, deep: bool) -> Re
     let state = installed(instance);
     let from = state.as_ref().map(|s| s.tag.clone());
     let same = from.as_deref() == Some(pack.tag.as_str());
-    let Some(state) = state.filter(|s| !s.entries.is_empty()) else {
+    // sem estado ou instalado com uma regra antiga de pastas: reinstala do zero
+    let Some(state) = state.filter(|s| !s.entries.is_empty() && s.layout >= LAYOUT) else {
         return Ok(full_plan(pack, from));
     };
     let broken: HashSet<String> = damaged(instance, &state, deep).into_iter().collect();
@@ -403,7 +442,7 @@ async fn apply_incremental(net: &Net, prog: &Arc<Progress>, instance: &Path, pac
             move_into(&staging.join(rel), &target)?;
         }
         let entries = plan.remote.iter().map(|(rel, e)| FileRec { path: rel.clone(), crc: e.crc32, size: e.size }).collect();
-        write_state(instance, &InstalledPack { tag: pack.tag.clone(), entries, files: Vec::new() })
+        write_state(instance, &InstalledPack { tag: pack.tag.clone(), layout: LAYOUT, entries, files: Vec::new() })
     })();
     if let Err(e) = result {
         rollback(instance, &journal);
@@ -448,8 +487,11 @@ fn extract(net: &Net, prog: &Progress, zip_path: &Path, instance: &Path, tag: &s
     if names.is_empty() {
         bail!("o .zip do modpack está vazio");
     }
-    let prefix = common_prefix(&names);
+    let prefix = pack_root(&names);
     let strip = |n: &str| -> Option<String> {
+        if is_junk(n) {
+            return None;
+        }
         let n = match &prefix {
             Some(p) => n.strip_prefix(p.as_str())?.to_string(),
             None => n.to_string(),
@@ -504,7 +546,7 @@ fn extract(net: &Net, prog: &Progress, zip_path: &Path, instance: &Path, tag: &s
         std::fs::rename(&tmp, &target).with_context(|| format!("gravando {rel}"))?;
         prog.file_done();
     }
-    write_state(instance, &InstalledPack { tag: tag.to_string(), entries: records, files: Vec::new() })
+    write_state(instance, &InstalledPack { tag: tag.to_string(), layout: LAYOUT, entries: records, files: Vec::new() })
 }
 
 #[cfg(test)]
@@ -552,11 +594,78 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Confere o release TEOF mais novo PUBLICADO: lê só o índice do .zip (HTTP Range)
+    /// e verifica que o launcher coloca os mods em mods/. Roda no CI (acessa a rede).
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "acessa a rede: roda no workflow 'Modpack publicado'"]
+    async fn release_mais_novo_tem_formato_que_o_launcher_entende() {
+        use std::sync::atomic::AtomicBool;
+        let client = reqwest::Client::builder().user_agent(super::super::net::USER_AGENT).build().unwrap();
+        let mut req = client
+            .get("https://api.github.com/repos/Akashiic/Technic-Forbidden/releases?per_page=100")
+            .header("Accept", "application/vnd.github+json");
+        if let Ok(t) = std::env::var("GITHUB_TOKEN") {
+            req = req.bearer_auth(t);
+        }
+        let body = req.send().await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
+        let releases: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
+        let version = |t: &str| -> Option<Vec<u64>> { t.strip_prefix("TEOF-")?.split('.').map(|p| p.parse().ok()).collect() };
+        let latest = releases
+            .iter()
+            .filter(|r| !r["draft"].as_bool().unwrap_or(true) && !r["prerelease"].as_bool().unwrap_or(true))
+            .filter_map(|r| Some((version(r["tag_name"].as_str()?)?, r)))
+            .max_by(|a, b| a.0.cmp(&b.0))
+            .map(|(_, r)| r)
+            .expect("nenhum release TEOF- publicado");
+        let tag = latest["tag_name"].as_str().unwrap();
+        println!("Release mais novo: {tag}");
+        for a in latest["assets"].as_array().unwrap() {
+            println!("  anexo: {} ({} bytes)", a["name"], a["size"]);
+        }
+        let asset = latest["assets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|a| a["name"].as_str().is_some_and(|n| n.to_lowercase().ends_with(".zip")))
+            .max_by_key(|a| a["size"].as_u64().unwrap_or(0))
+            .expect("o release não tem anexo .zip");
+        let url = asset["browser_download_url"].as_str().unwrap();
+
+        let net = Net::new(Arc::new(AtomicBool::new(false))).unwrap();
+        let index = zipremote::read_index(&net, url).await.expect("não deu para ler o índice do .zip");
+        let names: Vec<String> = index.entries.iter().filter(|e| !e.is_dir).filter_map(|e| safe_rel(&e.name)).collect();
+        println!("{} arquivos no .zip ({} bytes)", names.len(), index.total);
+        let mut tops: Vec<(String, usize)> = Vec::new();
+        for n in &names {
+            let top: String = n.split('/').take(2).collect::<Vec<_>>().join("/");
+            match tops.iter_mut().find(|(t, _)| *t == top) {
+                Some(t) => t.1 += 1,
+                None => tops.push((top, 1)),
+            }
+        }
+        for (t, c) in tops.iter().take(40) {
+            println!("  {t}  ({c})");
+        }
+        println!("Raiz detectada: {:?}", pack_root(&names));
+        let mapped = map_entries(index.entries);
+        let mods = mapped.iter().filter(|(r, _)| r.starts_with("mods/") && (r.ends_with(".jar") || r.ends_with(".zip"))).count();
+        let forge = mapped.iter().any(|(r, _)| r == "bin/modpack.jar");
+        println!("Depois do mapeamento: {mods} mod(s) em mods/ · bin/modpack.jar: {forge}");
+        assert!(mods > 0, "nenhum mod em mods/ depois do mapeamento: o launcher abriria o Forge puro");
+    }
+
     #[test]
     fn pasta_raiz_unica_e_removida() {
         let n = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(common_prefix(&n(&["TEOF-5.3/mods/a.jar", "TEOF-5.3/bin/modpack.jar"])).as_deref(), Some("TEOF-5.3/"));
-        assert_eq!(common_prefix(&n(&["mods/a.jar", "bin/modpack.jar"])), None);
-        assert_eq!(common_prefix(&n(&["a/x", "b/y"])), None);
+        assert_eq!(pack_root(&n(&["TEOF-5.3/mods/a.jar", "TEOF-5.3/bin/modpack.jar"])).as_deref(), Some("TEOF-5.3/"));
+        assert_eq!(pack_root(&n(&["mods/a.jar", "bin/modpack.jar"])).as_deref(), Some(""));
+        assert_eq!(pack_root(&n(&["a/x", "b/y"])), None);
+        // formatos que causavam "Forge puro, sem mods"
+        assert_eq!(pack_root(&n(&[".minecraft/mods/a.jar", ".minecraft/config/x.cfg", ".minecraft/bin/modpack.jar"])).as_deref(), Some(".minecraft/"));
+        assert_eq!(pack_root(&n(&["Forbidden/.minecraft/mods/a.jar", "Forbidden/.minecraft/bin/modpack.jar", "Forbidden/LEIA-ME.txt"])).as_deref(), Some("Forbidden/.minecraft/"));
+        // mods/ dentro de config não confunde; mods/1.7.10 também não
+        assert_eq!(pack_root(&n(&["mods/1.7.10/a.jar", "config/x/mods/y.cfg", "bin/modpack.jar"])).as_deref(), Some(""));
+        // lixo do macOS é ignorado
+        assert_eq!(pack_root(&n(&["__MACOSX/._a", "pack/mods/a.jar", "pack/config/b.cfg"])).as_deref(), Some("pack/"));
     }
 }
