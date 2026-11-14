@@ -252,19 +252,22 @@ textarea {
 }
 
 /* ------------------------- Botão JOGAR ------------------------- */
-@property --energy-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-/* feixe de energia girando pela borda (como a energia do portal) */
-.energy-border {
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
+/* A borda é o próprio botão: o fundo dele tem a cor da borda, o feixe de energia
+   gira por cima e o miolo fica 2 px para dentro. Borda e feixe são o mesmo
+   elemento, então nunca se desencontram, e o feixe só gira (transform): não
+   repinta nada a cada quadro. */
+.play-shell {
   padding: 2px;
+  isolation: isolate;
+}
+.play-beam {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
   background: conic-gradient(
-    from var(--energy-angle),
+    from 0deg,
     transparent 0deg,
     transparent 200deg,
     var(--accent-strong) 280deg,
@@ -272,22 +275,33 @@ textarea {
     var(--accent-strong) 340deg,
     transparent 360deg
   );
-  -webkit-mask:
-    linear-gradient(var(--shade) 0 0) content-box,
-    linear-gradient(var(--shade) 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: energy-spin 3.6s linear infinite;
+  transform: translate(-50%, -50%);
+  animation: beam-spin 3.6s linear infinite;
+  will-change: transform;
   pointer-events: none;
-  z-index: 4;
+  z-index: 0;
 }
-.energy-border.energy-fast {
-  animation-duration: 1.1s;
+.play-beam.beam-fast {
+  animation-duration: 1.4s;
 }
-@keyframes energy-spin {
-  to {
-    --energy-angle: 360deg;
+@keyframes beam-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
   }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+.play-core {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  padding: 0 16px;
 }
 /* lava viva dentro do botão */
 .play-lava {
@@ -302,9 +316,9 @@ textarea {
   transition: opacity 0.4s var(--ease-out-expo);
   pointer-events: none;
 }
+/* no hover a lava só clareia: trocar a duração de uma animação em andamento faz ela pular */
 .play-hot .play-lava {
   opacity: 0.95;
-  animation-duration: 3s;
 }
 @keyframes lava-drift {
   0% {
@@ -378,7 +392,7 @@ textarea {
 html.eco .shimmer::after,
 html.eco .pulse-ring,
 html.eco .progress-stripes,
-html.eco .energy-border,
+html.eco .play-beam,
 html.eco .play-lava,
 html.eco .play-ember {
   animation: none !important;

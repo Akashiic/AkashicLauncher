@@ -11,14 +11,18 @@ import { cn, EASE } from '@/lib/cn'
 import { useFx } from '@/store/fx'
 import { useSettings } from '@/store/settings'
 import { AccountPanel } from '@/components/account/AccountPanel'
+import { FEATURES } from '@/lib/features'
 
-const NAV: { id: Route; label: string; icon: LucideIcon; badge?: number }[] = [
+type NavEntry = { id: Route; label: string; icon: LucideIcon; badge?: number }
+
+const ALL_NAV: NavEntry[] = [
   { id: 'home', label: 'Início', icon: Home },
   { id: 'news', label: 'Notícias', icon: Newspaper, badge: 2 },
   { id: 'modpack', label: 'Modpack', icon: Package },
 ]
+const NAV = ALL_NAV.filter((item) => item.id !== 'news' || FEATURES.news)
 
-function NavItem({ id, label, icon: Icon, badge }: (typeof NAV)[number]) {
+function NavItem({ id, label, icon: Icon, badge }: NavEntry) {
   const route = useUi((s) => s.route)
   const navigate = useUi((s) => s.navigate)
   const active = route === id
@@ -133,7 +137,7 @@ export function CommandColumn() {
                 <NavItem key={item.id} {...item} />
               ))}
             </nav>
-            <LatestNews />
+            {FEATURES.news && <LatestNews />}
             <div className="flex-1" />
             <CommandPlay />
             <UserBar />

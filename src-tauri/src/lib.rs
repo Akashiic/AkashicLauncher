@@ -4,6 +4,7 @@
 //! partes nativas: bandeja, configurações em disco e abertura de pastas/links.
 //! É também o lugar da lógica pesada que vem depois (download, extração, Java).
 
+mod frame;
 mod game;
 mod updater;
 
@@ -163,6 +164,10 @@ pub fn run() {
         .setup(|app| {
             // dados na pasta .forbiddenseries (move da pasta antiga, se houver)
             game::migrate_data(app.handle());
+            // sem a linha de 1 px do Windows em volta da janela sem moldura
+            if let Some(w) = app.get_webview_window("main") {
+                frame::apply(&w);
+            }
             let tray = match create_tray(app.handle()) {
                 Ok(t) => Some(t),
                 Err(e) => {

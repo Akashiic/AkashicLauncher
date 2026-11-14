@@ -18,7 +18,7 @@
         "maximizable": false,
         "center": true,
         "decorations": false,
-        "shadow": true,
+        "shadow": false,
         "backgroundColor": "#0D0D0D",
         "visible": false
       }

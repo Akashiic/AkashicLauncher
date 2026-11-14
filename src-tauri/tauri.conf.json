@@ -22,7 +22,7 @@
         "fullscreen": false,
         "center": true,
         "decorations": false,
-        "shadow": true,
+        "shadow": false,
         "visible": false,
         "backgroundColor": "#0D0D0D",
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"

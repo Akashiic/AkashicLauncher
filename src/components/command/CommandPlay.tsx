@@ -138,7 +138,8 @@ export function CommandPlay() {
 
   return (
     <div className="flex flex-col">
-      <motion.div style={{ x: sx, y: sy }} onMouseMove={magnet} onMouseLeave={unmagnet} className={cn('relative rounded-xl', hot && 'play-hot')}>
+      {/* will-change: o deslocamento magnético move uma camada pronta, sem redesenhar o texto a cada quadro */}
+      <motion.div style={{ x: sx, y: sy, willChange: 'transform' }} onMouseMove={magnet} onMouseLeave={unmagnet} className={cn('relative rounded-xl', hot && 'play-hot')}>
         {/* brasas subindo (fora do botão para não serem cortadas) */}
         <div className="play-embers" aria-hidden>
           {EMBERS.map((e, i) => (
@@ -170,60 +171,63 @@ export function CommandPlay() {
           onMouseLeave={() => setPlayHover(false)}
           onFocus={() => ready && setPlayHover(true)}
           onBlur={() => setPlayHover(false)}
-          whileHover={{ scale: ready ? 1.025 : 1 }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 420, damping: 22 }}
           aria-live="polite"
           aria-disabled={blocked || undefined}
           className={cn(
-            'relative flex h-[76px] w-full items-center overflow-hidden rounded-xl border-2 px-4 text-fg transition-[background-color,box-shadow,border-color] duration-300',
-            blocked && 'cursor-not-allowed border-line-strong bg-surface-2 text-muted',
-            ready && 'border-accent bg-brand shadow-glow hover:shadow-glow-strong',
-            busy && 'border-accent bg-surface-2 shadow-glow',
-            live && 'border-success bg-surface-2 hover:bg-surface',
+            // o fundo do botão é a cor da borda; o miolo (play-core) fica 2 px para dentro
+            'play-shell group relative flex h-[76px] w-full overflow-hidden rounded-xl text-fg transition-[background-color,box-shadow] duration-300',
+            blocked && 'cursor-not-allowed bg-line-strong text-muted',
+            ready && 'bg-accent shadow-glow hover:shadow-glow-strong',
+            busy && 'bg-accent shadow-glow',
+            live && 'bg-success',
           )}
         >
-          {ready && <span className="play-lava" aria-hidden />}
-          <span className="play-pixels" aria-hidden />
+          {/* energia girando pela borda (no mesmo elemento da borda: nunca desencontra) */}
+          {(ready || busy) && <span className={cn('play-beam', busy && 'beam-fast')} aria-hidden />}
 
-          {/* progresso: preenchimento vinho com ponta vermelha */}
-          <AnimatePresence>
-            {busy && (
+          <span className={cn('play-core transition-colors duration-300', ready ? 'bg-brand' : 'bg-surface-2', live && 'group-hover:bg-surface')}>
+            {ready && <span className="play-lava" aria-hidden />}
+            <span className="play-pixels" aria-hidden />
+
+            {/* progresso: preenchimento vinho com ponta vermelha */}
+            <AnimatePresence>
+              {busy && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: `${Math.max(2, progress * 100)}%` }}
+                  exit={{ opacity: 0 }}
+                  transition={{ width: { type: 'spring', stiffness: 110, damping: 22 }, opacity: { duration: 0.3 } }}
+                  className="progress-stripes absolute inset-y-0 left-0 border-r-[3px] border-accent-strong bg-brand shadow-glow-strong"
+                  aria-hidden
+                />
+              )}
+            </AnimatePresence>
+
+            {/* troca de rótulo só com opacidade e deslocamento (blur em texto pisca no WebView2) */}
+            <AnimatePresence mode="wait" initial={false}>
               <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: `${Math.max(2, progress * 100)}%` }}
-                exit={{ opacity: 0 }}
-                transition={{ width: { type: 'spring', stiffness: 110, damping: 22 }, opacity: { duration: 0.3 } }}
-                className="progress-stripes absolute inset-y-0 left-0 border-r-[3px] border-accent-strong bg-brand shadow-glow-strong"
-                aria-hidden
-              />
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={view.key}
-              initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -14, filter: 'blur(6px)' }}
-              transition={{ duration: 0.3, ease: EASE }}
-              className={cn('relative z-[3] flex w-full items-center gap-3', view.right ? 'justify-between' : 'justify-center')}
-            >
-              <span className="flex items-center gap-3">
-                {view.icon && (
-                  <motion.span animate={ready && playHover ? { x: [0, 3, 0] } : { x: 0 }} transition={{ duration: 0.9, repeat: ready && playHover ? Infinity : 0 }}>
-                    {view.icon}
-                  </motion.span>
-                )}
-                <span className={cn('font-display', view.key.startsWith('ready') ? (view.key === 'ready' ? 'play-title text-[48px] tracking-[4px]' : 'play-title text-[40px] tracking-[3px]') : view.key === 'launching' ? 'text-[26px]' : 'text-[30px]')}>{view.label}</span>
-              </span>
-              {view.right && <span className="play-title font-display text-[30px] tabular-nums">{view.right}</span>}
-            </motion.span>
-          </AnimatePresence>
+                key={view.key}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.3, ease: EASE }}
+                className={cn('relative z-[3] flex w-full items-center gap-3', view.right ? 'justify-between' : 'justify-center')}
+              >
+                <span className="flex items-center gap-3">
+                  {view.icon && (
+                    <motion.span animate={ready && playHover ? { x: [0, 3, 0] } : { x: 0 }} transition={{ duration: 0.9, repeat: ready && playHover ? Infinity : 0 }}>
+                      {view.icon}
+                    </motion.span>
+                  )}
+                  <span className={cn('font-display', view.key.startsWith('ready') ? (view.key === 'ready' ? 'play-title text-[48px] tracking-[4px]' : 'play-title text-[40px] tracking-[3px]') : view.key === 'launching' ? 'text-[26px]' : 'text-[30px]')}>{view.label}</span>
+                </span>
+                {view.right && <span className="play-title font-display text-[30px] tabular-nums">{view.right}</span>}
+              </motion.span>
+            </AnimatePresence>
+          </span>
         </motion.button>
-
-        {/* energia girando pela borda */}
-        {(ready || busy) && <span className={cn('energy-border', busy && 'energy-fast')} aria-hidden />}
       </motion.div>
 
       {/* linha de contexto: status do servidor quando parado, progresso/sessão quando ativo */}

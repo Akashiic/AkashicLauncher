@@ -13,6 +13,10 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// a mesma moldura do launcher (sem a linha de 1 px do Windows)
+#[path = "../../../src-tauri/src/frame.rs"]
+mod frame;
+
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -309,6 +313,7 @@ fn main() {
         .setup(|app| {
             // a janela nasce oculta (sem piscar) e aparece aqui, já com o fundo do tema
             if let Some(w) = app.get_webview_window("main") {
+                frame::apply(&w);
                 let _ = w.show();
                 let _ = w.set_focus();
             }
