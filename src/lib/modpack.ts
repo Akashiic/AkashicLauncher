@@ -77,9 +77,16 @@ export function compareVersions(a: number[] | string, b: number[] | string) {
 }
 
 /** Arquivo do modpack no release: o .zip (o maior, se houver mais de um). */
-export function pickAsset(assets: GhAsset[]): ModpackAsset | null {
+/**
+ * O .zip do pack num release. Um release pode ter mais de um anexo (ex.:
+ * "TEOF-5.6.zip" e "TEOF-5.6-MANUAL.zip"): vale o que tem o nome exato da tag;
+ * senão, um que não seja variante manual/servidor/código; só então o maior.
+ */
+export function pickAsset(assets: GhAsset[], tag = ''): ModpackAsset | null {
   const zips = assets.filter((a) => a.name.toLowerCase().endsWith('.zip'))
-  const best = zips.sort((x, y) => y.size - x.size)[0]
+  const exact = zips.find((a) => tag && a.name.toLowerCase() === `${tag.toLowerCase()}.zip`)
+  const regular = zips.filter((a) => !/manual|server|servidor|source|src/i.test(a.name)).sort((x, y) => y.size - x.size)
+  const best = exact ?? regular[0] ?? zips.sort((x, y) => y.size - x.size)[0]
   if (!best) return null
   const sha256 = best.digest?.startsWith('sha256:') ? best.digest.slice(7) : undefined
   return { name: best.name, size: best.size, url: best.browser_download_url, ...(sha256 ? { sha256 } : {}) }
@@ -101,7 +108,7 @@ export function toModpackReleases(data: GhRelease[], includePrerelease = false):
         publishedAt: r.published_at ?? '',
         htmlUrl: r.html_url,
         prerelease: r.prerelease,
-        asset: pickAsset(r.assets ?? []),
+        asset: pickAsset(r.assets ?? [], r.tag_name),
       } satisfies ModpackRelease
     })
     .filter((r): r is ModpackRelease => r !== null)

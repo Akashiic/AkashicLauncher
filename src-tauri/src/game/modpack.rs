@@ -622,14 +622,35 @@ mod tests {
         for a in latest["assets"].as_array().unwrap() {
             println!("  anexo: {} ({} bytes)", a["name"], a["size"]);
         }
-        let asset = latest["assets"]
+        // mesma regra da interface (src/lib/modpack.ts → pickAsset)
+        let zips: Vec<&serde_json::Value> = latest["assets"]
             .as_array()
             .unwrap()
             .iter()
             .filter(|a| a["name"].as_str().is_some_and(|n| n.to_lowercase().ends_with(".zip")))
-            .max_by_key(|a| a["size"].as_u64().unwrap_or(0))
+            .collect();
+        let name = |a: &serde_json::Value| a["name"].as_str().unwrap_or_default().to_lowercase();
+        let variant = |n: &str| ["manual", "server", "servidor", "source", "src"].iter().any(|k| n.contains(k));
+        let asset = zips
+            .iter()
+            .find(|a| name(a) == format!("{}.zip", tag.to_lowercase()))
+            .or_else(|| zips.iter().filter(|a| !variant(&name(a))).max_by_key(|a| a["size"].as_u64().unwrap_or(0)))
+            .or_else(|| zips.iter().max_by_key(|a| a["size"].as_u64().unwrap_or(0)))
             .expect("o release não tem anexo .zip");
+        println!("Anexo escolhido pelo launcher: {}", asset["name"]);
         let url = asset["browser_download_url"].as_str().unwrap();
+
+        // para diagnóstico: a estrutura dos outros .zip do release
+        let net_info = Net::new(Arc::new(AtomicBool::new(false))).unwrap();
+        for other in zips.iter().filter(|a| a["name"] != asset["name"]) {
+            if let Ok(idx) = zipremote::read_index(&net_info, other["browser_download_url"].as_str().unwrap()).await {
+                let names: Vec<String> = idx.entries.iter().filter(|e| !e.is_dir).filter_map(|e| safe_rel(&e.name)).collect();
+                let mut tops: Vec<String> = names.iter().map(|n| n.split('/').take(2).collect::<Vec<_>>().join("/")).collect();
+                tops.dedup();
+                tops.truncate(15);
+                println!("Outro anexo {}: {} arquivos · raiz {:?} · {:?}", other["name"], names.len(), pack_root(&names), tops);
+            }
+        }
 
         let net = Net::new(Arc::new(AtomicBool::new(false))).unwrap();
         let index = zipremote::read_index(&net, url).await.expect("não deu para ler o índice do .zip");

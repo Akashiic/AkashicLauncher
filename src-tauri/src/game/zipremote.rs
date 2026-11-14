@@ -47,13 +47,11 @@ fn u64le(b: &[u8], i: usize) -> u64 {
 /// Busca `[start, end)` do arquivo remoto. Exige resposta 206 (parcial).
 async fn range(net: &Net, url: &str, start: u64, end: u64, prog: Option<&Progress>) -> Result<Vec<u8>> {
     net.check()?;
-    let resp = net
-        .client()
-        .get(url)
-        .header(header::RANGE, format!("bytes={start}-{}", end - 1))
-        .send()
-        .await?
-        .error_for_status()?;
+    let resp = net.client().get(url).header(header::RANGE, format!("bytes={start}-{}", end - 1)).send().await?;
+    if matches!(resp.status(), StatusCode::NOT_IMPLEMENTED | StatusCode::RANGE_NOT_SATISFIABLE) {
+        return Err(RangeUnsupported.into());
+    }
+    let resp = resp.error_for_status()?;
     if resp.status() != StatusCode::PARTIAL_CONTENT {
         return Err(RangeUnsupported.into());
     }
@@ -88,20 +86,27 @@ async fn range_retry(net: &Net, url: &str, start: u64, end: u64, prog: Option<&P
     Err(last.unwrap())
 }
 
-/// Últimos `len` bytes do arquivo + tamanho total (do cabeçalho Content-Range).
-async fn tail(net: &Net, url: &str, len: u64) -> Result<(Vec<u8>, u64)> {
-    let resp = net.client().get(url).header(header::RANGE, format!("bytes=-{len}")).send().await?.error_for_status()?;
+/// Tamanho total do arquivo remoto, pedindo só o 1º byte (o Content-Range traz o total).
+/// Os servidores de anexos do GitHub recusam "os últimos N bytes" (`bytes=-N`),
+/// então o fim do arquivo é pedido com posições exatas.
+async fn remote_size(net: &Net, url: &str) -> Result<u64> {
+    let resp = net.client().get(url).header(header::RANGE, "bytes=0-0").send().await?;
     if resp.status() != StatusCode::PARTIAL_CONTENT {
         return Err(RangeUnsupported.into());
     }
-    let total = resp
-        .headers()
+    resp.headers()
         .get(header::CONTENT_RANGE)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.rsplit('/').next())
         .and_then(|t| t.trim().parse::<u64>().ok())
-        .ok_or(RangeUnsupported)?;
-    Ok((resp.bytes().await?.to_vec(), total))
+        .ok_or_else(|| RangeUnsupported.into())
+}
+
+/// Últimos `len` bytes do arquivo + tamanho total.
+async fn tail(net: &Net, url: &str, len: u64) -> Result<(Vec<u8>, u64)> {
+    let total = remote_size(net, url).await?;
+    let start = total.saturating_sub(len);
+    Ok((range_retry(net, url, start, total, None).await?, total))
 }
 
 /// Índice de um .zip remoto: entradas e tamanho total do arquivo.
