@@ -6,6 +6,7 @@
 
 pub mod crash;
 pub mod forge;
+pub mod gpu;
 pub mod java;
 pub mod launch;
 pub mod minecraft;
@@ -90,6 +91,9 @@ pub struct PlayRequest {
     jvm_args: Vec<String>,
     java_path: Option<String>,
     pack: Option<modpack::PackInfo>,
+    /// placa de vídeo do jogo: auto | integrated | dedicated
+    #[serde(default)]
+    gpu_preference: String,
 }
 
 fn log<R: Runtime>(app: &AppHandle<R>, s: impl AsRef<str>) {
@@ -164,6 +168,9 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
         None => java::ensure(&net, &prog, &p.runtime, &p.cache, p.bundled.as_deref()).await?,
     };
     log(app, format!("Java: {}", java.display()));
+    if let Some(label) = gpu::apply_preference(&java, &req.gpu_preference) {
+        log(app, format!("Placa de vídeo do jogo: {label}"));
+    }
 
     // 2) Minecraft 1.7.10
     prog.stage("verifying", "Minecraft 1.7.10");
@@ -390,6 +397,7 @@ mod e2e {
             jvm_args: Vec::new(),
             java_path: None,
             pack: Some(pack.clone()),
+            gpu_preference: String::new(),
         };
         let state = handle.state::<GameState>();
         let progress = Arc::new(Progress::default());

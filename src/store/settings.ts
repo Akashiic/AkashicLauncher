@@ -11,6 +11,7 @@ export type LaunchBehavior = 'tray' | 'keep' | 'close'
 export type Minimap = 'journeymap' | 'voxelmap' | 'none'
 
 export type AccountType = 'microsoft' | 'offline'
+export type GpuPreference = 'auto' | 'integrated' | 'dedicated'
 
 /** Perfil de jogador. Tokens da Microsoft NUNCA ficam aqui (na versão real: cofre do sistema, via Rust). */
 export interface Account {
@@ -38,6 +39,8 @@ export interface Settings {
   ecoMode: boolean
   /** Com as animações do Windows desligadas, o launcher também fica parado. */
   followSystemMotion: boolean
+  /** Placa de vídeo do jogo (preferência de gráficos do Windows para o Java do jogo). */
+  gpuPreference: GpuPreference
   profileId: string
   /** Perfis de jogador (obrigatório ter ao menos um para jogar). */
   accounts: Account[]
@@ -81,6 +84,7 @@ export const DEFAULT_SETTINGS: Settings = {
   audio: { master: ch(0.8), bgm: ch(0.45), sfx: ch(0.7), sbfx: ch(0.5) },
   ecoMode: false,
   followSystemMotion: true,
+  gpuPreference: 'auto',
   profileId: 'survival',
   accounts: [],
   activeAccountId: null,
@@ -141,6 +145,7 @@ function merge(raw: unknown): Settings {
     accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
     followSystemMotion: typeof r.followSystemMotion === 'boolean' ? r.followSystemMotion : d.followSystemMotion,
+    gpuPreference: r.gpuPreference === 'integrated' || r.gpuPreference === 'dedicated' ? r.gpuPreference : 'auto',
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }
 }

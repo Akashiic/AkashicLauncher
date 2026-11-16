@@ -154,23 +154,9 @@ fn gpu_driver(evidence: String, gpus: Vec<String>) -> Diagnosis {
     }
 }
 
-/// Placas de vídeo do PC (Windows: Win32_VideoController).
+/// Nomes das placas de vídeo do PC.
 pub fn detect_gpus() -> Vec<String> {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let out = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", "Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name }"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-        if let Ok(o) = out {
-            return String::from_utf8_lossy(&o.stdout).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect();
-        }
-        Vec::new()
-    }
-    #[cfg(not(windows))]
-    Vec::new()
+    super::gpu::detect().gpus.into_iter().map(|g| g.name).collect()
 }
 
 #[cfg(test)]

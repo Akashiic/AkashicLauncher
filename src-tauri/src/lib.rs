@@ -207,6 +207,7 @@ pub fn run() {
             game::game_installed,
             game::game_verify,
             game::game_update_plan,
+            game::gpu::gpu_info,
             updater::launcher_check_update,
             updater::launcher_install_update,
             auth::auth_configured,

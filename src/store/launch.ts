@@ -356,6 +356,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
         jvmArgs: normalizeFlags(settings.jvmArgs).split(/\s+/).filter(Boolean),
         javaPath: custom,
         pack,
+        gpuPreference: settings.gpuPreference,
       })
       const now = get().phase
       if (now === 'verifying' || now === 'downloading') set({ phase: 'launching' })

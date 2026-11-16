@@ -78,6 +78,27 @@ export interface PlayRequest {
   jvmArgs: string[]
   javaPath: string | null
   pack: { tag: string; url: string; size: number; sha256?: string } | null
+  gpuPreference?: 'auto' | 'integrated' | 'dedicated'
+}
+
+/** Placa de vídeo (src-tauri/src/game/gpu.rs). */
+export interface GpuInfo {
+  name: string
+  kind: 'integrated' | 'dedicated' | 'basic' | 'unknown'
+  vramMb: number | null
+  driverVersion: string | null
+  driverDate: string | null
+  score: number
+  opengl33: boolean
+  vendor: 'nvidia' | 'amd' | 'intel' | null
+}
+
+export interface GpuReport {
+  gpus: GpuInfo[]
+  recommended: number | null
+  suggestion: 'auto' | 'integrated' | 'dedicated'
+  reason: string
+  hybrid: boolean
 }
 
 /** Retrato do progresso emitido pelo Rust (`launch:progress`). */
@@ -136,6 +157,8 @@ export interface GameApi {
   /** O que uma atualização vai baixar (lê só o índice do .zip remoto). */
   plan(pack: PackRef): Promise<UpdateSummary>
   installed(): Promise<string | null>
+  /** Placas de vídeo do PC e qual usar. */
+  gpuInfo(): Promise<GpuReport>
   on<K extends keyof GameEvents>(event: K, cb: (payload: GameEvents[K]) => void): () => void
 }
 
@@ -219,6 +242,7 @@ function tauriBridge(): AkashicBridge {
       verify: (pack) => invoke('game_verify', { pack }),
       plan: (pack) => invoke<UpdateSummary>('game_update_plan', { pack }),
       installed: () => invoke<string | null>('game_installed'),
+      gpuInfo: () => invoke<GpuReport>('gpu_info'),
       on: (event, cb) => {
         const off = listen(event, (e) => cb(e.payload as never))
         return () => void off.then((f) => f())

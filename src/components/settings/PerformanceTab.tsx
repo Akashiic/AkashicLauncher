@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/Switch'
 import { Slider } from '@/components/ui/Slider'
 import { Button } from '@/components/ui/Button'
 import { Section } from './SettingRow'
+import { GpuSection } from './GpuSection'
 import { toast } from '@/store/toasts'
 import { audio } from '@/audio/AudioManager'
 import { bridge } from '@/lib/bridge'
@@ -101,6 +102,8 @@ export function PerformanceTab() {
           ))}
         </div>
       </Section>
+
+      <GpuSection />
 
       <Section title="Java" desc="O launcher baixa e cuida do próprio Java 8 (o mesmo para todos os jogadores, conferido pelo SHA-256 oficial). Você não precisa instalar nada.">
         <div className="flex items-center gap-4 rounded-xl border border-success/30 bg-bg/70 px-4 py-3.5">
