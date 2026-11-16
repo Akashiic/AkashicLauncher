@@ -91,6 +91,9 @@ export interface GpuInfo {
   score: number
   opengl33: boolean
   vendor: 'nvidia' | 'amd' | 'intel' | null
+  /** placa antiga: já no último driver e sem OpenGL 3.3 */
+  legacy: boolean
+  note: string | null
 }
 
 export interface GpuReport {
@@ -130,7 +133,7 @@ export type PackRef = NonNullable<PlayRequest['pack']>
 
 /** Problema reconhecido num crash (src-tauri/src/game/crash.rs). */
 export interface CrashDiagnosis {
-  kind: 'gpu_driver' | 'memory' | 'duplicate_mods' | 'missing_mods'
+  kind: 'gpu_driver' | 'gpu_unsupported' | 'memory' | 'duplicate_mods' | 'missing_mods'
   title: string
   body: string
   steps: string[]

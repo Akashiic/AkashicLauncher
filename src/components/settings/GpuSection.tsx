@@ -20,8 +20,8 @@ const KIND = { integrated: 'Integrada', dedicated: 'Dedicada', basic: 'Sem drive
 /** Navegador (só para ver o visual): um notebook típico. */
 const MOCK: GpuReport = {
   gpus: [
-    { name: 'Intel(R) UHD Graphics 620', kind: 'integrated', vramMb: 1024, driverVersion: '31.0.101.2111', driverDate: '2023-02-10', score: 30, opengl33: true, vendor: 'intel' },
-    { name: 'NVIDIA GeForce MX150', kind: 'dedicated', vramMb: 2048, driverVersion: '27.21.14.5671', driverDate: '2020-11-12', score: 35, opengl33: true, vendor: 'nvidia' },
+    { name: 'Intel(R) UHD Graphics 620', kind: 'integrated', vramMb: 1024, driverVersion: '31.0.101.2111', driverDate: '2023-02-10', score: 30, opengl33: true, vendor: 'intel', legacy: false, note: null },
+    { name: 'NVIDIA GeForce MX150', kind: 'dedicated', vramMb: 2048, driverVersion: '27.21.14.5671', driverDate: '2020-11-12', score: 35, opengl33: true, vendor: 'nvidia', legacy: false, note: null },
   ],
   recommended: 0,
   suggestion: 'integrated',
@@ -40,7 +40,7 @@ const fmtDate = (d: string) => d.split('-').reverse().join('/')
 
 function GpuCard({ g, recommended }: { g: GpuInfo; recommended: boolean }) {
   const site = g.vendor ? DRIVER_SITES[g.vendor] : null
-  const stale = oldDriver(g.driverDate)
+  const stale = !g.legacy && oldDriver(g.driverDate)
   return (
     <div className={cn('rounded-xl border px-3.5 py-3', recommended ? 'border-accent/60 bg-brand/25' : 'border-line bg-bg/50')}>
       <div className="flex items-start gap-3">
@@ -58,10 +58,12 @@ function GpuCard({ g, recommended }: { g: GpuInfo; recommended: boolean }) {
             {g.driverVersion ? `driver ${g.driverVersion}` : 'sem driver do fabricante'}
             {g.driverDate ? ` (${fmtDate(g.driverDate)})` : ''}
           </div>
-          {!g.opengl33 && g.kind !== 'basic' && <div className="mt-1 text-xs text-danger-text">Não tem OpenGL 3.3: o modpack (Angelica) não roda nesta placa.</div>}
+          {!g.opengl33 && g.kind !== 'basic' && (
+            <div className="mt-1 text-xs text-danger-text">Não tem OpenGL 3.3: o modpack (Angelica) não roda nesta placa.{g.note ? ` ${g.note}` : ''}</div>
+          )}
           {stale && <div className="mt-1 flex items-center gap-1 text-xs text-warning"><AlertTriangle size={11} /> Driver antigo: atualizar pode dar mais FPS e evitar crashes.</div>}
         </div>
-        {site && (
+        {site && !g.legacy && (
           <Button size="sm" variant="ghost" sound={null} icon={<ExternalLink size={12} />} onClick={() => void bridge.shell.openExternal(site.url).catch(() => toast({ kind: 'error', title: 'Não deu para abrir o navegador' }))}>
             Driver
           </Button>

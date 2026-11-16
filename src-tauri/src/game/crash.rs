@@ -13,7 +13,7 @@ pub struct Link {
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Diagnosis {
-    /// gpu_driver | memory | duplicate_mods | missing_mods
+    /// gpu_driver | gpu_unsupported | memory | duplicate_mods | missing_mods
     pub kind: String,
     pub title: String,
     pub body: String,
@@ -59,7 +59,7 @@ fn evidence(text: &str, patterns: &[&str]) -> Option<String> {
 }
 
 /// Reconhece o problema no relatório de crash / log. `gpus` só é usado no caso de vídeo.
-pub fn diagnose(text: &str, gpus: impl FnOnce() -> Vec<String>) -> Option<Diagnosis> {
+pub fn diagnose(text: &str, gpus: impl FnOnce() -> Vec<super::gpu::Gpu>) -> Option<Diagnosis> {
     const GPU: &[&str] = &[
         "Pixel format not accelerated",
         "OpenGL 3.3 core profile",
@@ -114,7 +114,29 @@ pub fn diagnose(text: &str, gpus: impl FnOnce() -> Vec<String>) -> Option<Diagno
     None
 }
 
-fn gpu_driver(evidence: String, gpus: Vec<String>) -> Diagnosis {
+fn gpu_driver(evidence: String, found: Vec<super::gpu::Gpu>) -> Diagnosis {
+    // placa que não tem OpenGL 3.3 de jeito nenhum: driver não resolve
+    let usable: Vec<&super::gpu::Gpu> = found.iter().filter(|g| g.kind != "basic").collect();
+    if !usable.is_empty() && usable.iter().all(|g| !g.opengl33) {
+        return Diagnosis {
+            kind: "gpu_unsupported".into(),
+            title: "Placa de vídeo incompatível".into(),
+            body: format!(
+                "A placa deste PC ({}) vai no máximo até o OpenGL 3.1, e o modpack (Angelica) exige OpenGL 3.3. Ela já está no último driver que o fabricante lançou, então nenhuma atualização resolve.",
+                usable.iter().map(|g| g.name.as_str()).collect::<Vec<_>>().join(", ")
+            ),
+            steps: vec![
+                "Para jogar o Forbidden neste PC é preciso uma placa de vídeo dedicada.".into(),
+                "Em PC de mesa, um modelo de entrada já serve: NVIDIA GT 1030 / GTX 1050 ou AMD RX 550 / RX 6400 (encaixe PCI Express).".into(),
+                "Depois de instalar a placa, ligue o monitor nela (não na saída da placa-mãe) e instale o driver do fabricante.".into(),
+                "Em notebook não dá para trocar a placa de vídeo.".into(),
+            ],
+            gpus: found.iter().map(|g| g.name.clone()).collect(),
+            links: vec![],
+            evidence,
+        };
+    }
+    let gpus: Vec<String> = found.into_iter().map(|g| g.name).collect();
     let real: Vec<&String> = gpus.iter().filter(|g| !generic(g)).collect();
     let only_generic = !gpus.is_empty() && real.is_empty();
     // sites dos fabricantes encontrados; sem nada reconhecível, mostra os três
@@ -155,8 +177,8 @@ fn gpu_driver(evidence: String, gpus: Vec<String>) -> Diagnosis {
 }
 
 /// Nomes das placas de vídeo do PC.
-pub fn detect_gpus() -> Vec<String> {
-    super::gpu::detect().gpus.into_iter().map(|g| g.name).collect()
+pub fn detect_gpus() -> Vec<super::gpu::Gpu> {
+    super::gpu::detect().gpus
 }
 
 #[cfg(test)]
@@ -165,9 +187,22 @@ mod tests {
 
     const ANGELICA: &str = "java.lang.RuntimeException: Angelica requires an OpenGL 3.3 core profile context and could not create one. Last error: Pixel format not accelerated. Update or install the GPU driver.\n\tat net.minecraftforge.client.ForgeHooksClient.createDisplay\nCaused by: org.lwjgl.LWJGLException: Pixel format not accelerated";
 
+    fn gpus(list: &[(&str, &str)]) -> Vec<super::super::gpu::Gpu> {
+        let json: Vec<String> = list.iter().map(|(n, d)| format!(r#"{{"Name":"{n}","DriverVersion":"{d}"}}"#)).collect();
+        super::super::gpu::report_from_json(&format!("[{}]", json.join(","))).gpus
+    }
+
+    #[test]
+    fn intel_hd_antiga_nao_manda_atualizar_driver() {
+        let d = diagnose(ANGELICA, || gpus(&[("Intel(R) HD Graphics", "9.17.10.4459")])).unwrap();
+        assert_eq!(d.kind, "gpu_unsupported");
+        assert!(d.links.is_empty());
+        assert!(d.steps[0].contains("placa de vídeo dedicada"));
+    }
+
     #[test]
     fn placa_sem_driver() {
-        let d = diagnose(ANGELICA, || vec!["Microsoft Basic Display Adapter".into()]).unwrap();
+        let d = diagnose(ANGELICA, || gpus(&[("Microsoft Basic Display Adapter", "10.0.19041.1")])).unwrap();
         assert_eq!(d.kind, "gpu_driver");
         assert_eq!(d.title, "Placa de vídeo sem driver");
         assert_eq!(d.links.len(), 3, "sem fabricante conhecido mostra os três sites");
@@ -176,7 +211,7 @@ mod tests {
 
     #[test]
     fn notebook_intel_e_nvidia() {
-        let d = diagnose(ANGELICA, || vec!["Intel(R) UHD Graphics 620".into(), "NVIDIA GeForce MX150".into()]).unwrap();
+        let d = diagnose(ANGELICA, || gpus(&[("Intel(R) UHD Graphics 620", "31.0.101.2111"), ("NVIDIA GeForce MX150", "31.0.15.5222")])).unwrap();
         let urls: Vec<_> = d.links.iter().map(|l| l.url.as_str()).collect();
         assert_eq!(urls, vec![INTEL.1, NVIDIA.1]);
         assert!(d.body.contains("Intel(R) UHD Graphics 620"));
@@ -185,13 +220,13 @@ mod tests {
 
     #[test]
     fn radeon() {
-        let d = diagnose(ANGELICA, || vec!["AMD Radeon RX 580 Series".into()]).unwrap();
+        let d = diagnose(ANGELICA, || gpus(&[("AMD Radeon RX 580 Series", "31.0.21001.45002")])).unwrap();
         assert_eq!(d.links, vec![link(AMD.0, AMD.1)]);
     }
 
     #[test]
     fn outros_crashes() {
-        let never = || -> Vec<String> { panic!("só consulta a placa no caso de vídeo") };
+        let never = || -> Vec<super::super::gpu::Gpu> { panic!("só consulta a placa no caso de vídeo") };
         assert_eq!(diagnose("java.lang.OutOfMemoryError: Java heap space", never).unwrap().kind, "memory");
         assert_eq!(diagnose("cpw.mods.fml.common.DuplicateModsFoundException", never).unwrap().kind, "duplicate_mods");
         assert_eq!(diagnose("cpw.mods.fml.common.MissingModsException: Mod x requires y", never).unwrap().kind, "missing_mods");

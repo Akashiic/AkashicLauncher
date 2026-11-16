@@ -24,6 +24,23 @@ pub struct Gpu {
     pub opengl33: bool,
     /// fabricante: nvidia | amd | intel
     pub vendor: Option<String>,
+    /// placa antiga sem suporte: já está no último driver e não tem OpenGL 3.3
+    pub legacy: bool,
+    pub note: Option<String>,
+}
+
+/// Intel de 2011 ou antes (Sandy Bridge, Ironlake...): o Windows às vezes mostra só
+/// "Intel(R) HD Graphics", sem número, mas o driver entrega a geração. Os drivers
+/// 8.x e 9.17.x foram os últimos dessas placas, que param no OpenGL 3.1.
+pub fn intel_legacy(name: &str, driver: Option<&str>) -> bool {
+    let n = name.to_ascii_lowercase();
+    if !n.contains("intel") {
+        return false;
+    }
+    if n.contains("hd graphics 2000") || n.contains("hd graphics 3000") || n.contains("gma") || n.contains("express chipset") {
+        return true;
+    }
+    driver.is_some_and(|d| d.starts_with("9.17.") || d.starts_with("8."))
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -134,8 +151,14 @@ pub fn report_from_json(json: &str) -> Report {
         .into_iter()
         .filter_map(|w| {
             let name = w.name?.trim().to_string();
-            let (kind, vendor, score, opengl33) = classify(&name);
+            let (kind, vendor, mut score, mut opengl33) = classify(&name);
+            let legacy = intel_legacy(&name, w.driver_version.as_deref());
+            if legacy {
+                (score, opengl33) = (0, false);
+            }
             Some(Gpu {
+                legacy,
+                note: legacy.then(|| "Intel HD de 2011 ou anterior: vai no máximo até o OpenGL 3.1 e este já é o último driver que a Intel lançou para ela.".to_string()),
                 kind: kind.into(),
                 vendor: vendor.map(Into::into),
                 vram_mb: w.adapter_ram.filter(|&b| b > 0).map(|b| b / 1_048_576),
@@ -159,7 +182,10 @@ pub fn recommend(gpus: Vec<Gpu>) -> Report {
             "auto",
             "O Windows está usando o adaptador básico: a placa de vídeo está sem driver. Instale o driver do fabricante para o modpack abrir.".to_string(),
         ),
-        None => ("auto", "Nenhuma placa com OpenGL 3.3 foi encontrada; o modpack (Angelica) pode não abrir neste PC.".to_string()),
+        None => (
+            "auto",
+            "A placa de vídeo deste PC não tem OpenGL 3.3, que o modpack (Angelica) exige, e nenhum driver resolve. Para jogar o Forbidden é preciso uma placa de vídeo dedicada (em PC de mesa, um modelo de entrada como GT 1030, GTX 1050 ou RX 550 já serve).".to_string(),
+        ),
         Some(i) if !hybrid => ("auto", format!("{} é a placa deste PC. Mantenha o driver em dia para o melhor desempenho.", gpus[i].name)),
         Some(i) => {
             let g = &gpus[i];
@@ -275,6 +301,18 @@ mod tests {
         assert_eq!(r.suggestion, "integrated");
         assert!(r.reason.contains("teste as duas"));
         assert_eq!(r.gpus[r.recommended.unwrap()].kind, "integrated", "o selo segue a sugestão");
+    }
+
+    #[test]
+    fn intel_hd_de_2011_e_incompativel() {
+        // i5-2400: o Windows mostra só "Intel(R) HD Graphics" com o driver final de 2016
+        let r = report_from_json(r#"{"Name":"Intel(R) HD Graphics","AdapterRAM":2147483648,"DriverVersion":"9.17.10.4459","DriverDate":"2016-05-18"}"#);
+        let g = &r.gpus[0];
+        assert!(g.legacy && !g.opengl33);
+        assert_eq!(r.recommended, None);
+        assert!(r.reason.contains("placa de vídeo dedicada"));
+        // a mesma placa com driver de uma geração nova (Haswell) continua aceita
+        assert!(!intel_legacy("Intel(R) HD Graphics", Some("20.19.15.5107")));
     }
 
     #[test]

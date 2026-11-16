@@ -8,7 +8,7 @@ import { toast } from '@/store/toasts'
 import { Button } from '@/components/ui/Button'
 import { EASE } from '@/lib/cn'
 
-const ICONS = { gpu_driver: Cpu, memory: MemoryStick, duplicate_mods: PackageX, missing_mods: PackageX } as const
+const ICONS = { gpu_driver: Cpu, gpu_unsupported: Cpu, memory: MemoryStick, duplicate_mods: PackageX, missing_mods: PackageX } as const
 
 /** Depois de um crash reconhecido: o que houve, o passo a passo e o site do driver. */
 export function CrashHelp() {
