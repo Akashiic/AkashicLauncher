@@ -83,6 +83,15 @@ export interface PlayRequest {
   compatGpu?: boolean
 }
 
+/** Um mod da pasta mods/ do jogo instalado (src-tauri/src/game/modpack.rs). */
+export interface InstalledMod {
+  file: string
+  name: string
+  version: string | null
+  /** false = desligado pelo modo compatibilidade */
+  enabled: boolean
+}
+
 /** Placa de vídeo (src-tauri/src/game/gpu.rs). */
 export interface GpuInfo {
   name: string
@@ -164,6 +173,8 @@ export interface GameApi {
   installed(): Promise<string | null>
   /** Placas de vídeo do PC e qual usar. */
   gpuInfo(): Promise<GpuReport>
+  /** Os mods instalados de verdade na pasta do jogo (lidos dos jars). */
+  mods(): Promise<InstalledMod[]>
   on<K extends keyof GameEvents>(event: K, cb: (payload: GameEvents[K]) => void): () => void
 }
 
@@ -248,6 +259,7 @@ function tauriBridge(): AkashicBridge {
       plan: (pack) => invoke<UpdateSummary>('game_update_plan', { pack }),
       installed: () => invoke<string | null>('game_installed'),
       gpuInfo: () => invoke<GpuReport>('gpu_info'),
+      mods: () => invoke<InstalledMod[]>('game_mods'),
       on: (event, cb) => {
         const off = listen(event, (e) => cb(e.payload as never))
         return () => void off.then((f) => f())

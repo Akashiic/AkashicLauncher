@@ -74,25 +74,3 @@ export const NEWS: NewsItem[] = [
   },
 ]
 
-export const CORE_MODS = [
-  ['Applied Energistics 2', 'rv3-beta-6', 'Tech'],
-  ['Thaumcraft', '4.2.3.5', 'Magia'],
-  ['Botania', 'r1.8-249', 'Magia'],
-  ['Tinkers\' Construct', '1.8.8', 'Ferramentas'],
-  ['IndustrialCraft 2', '2.2.827', 'Tech'],
-  ['BuildCraft', '7.1.23', 'Tech'],
-  ['Mekanism', '9.1.1', 'Tech'],
-  ['Ender IO', '2.3.0.429', 'Tech'],
-  ['Railcraft', '9.12.2.0', 'Transporte'],
-  ['Witchery', '0.24.1', 'Magia'],
-  ['Blood Magic', '1.3.3-17', 'Magia'],
-  ['Biomes O\' Plenty', '2.1.0', 'Mundo'],
-  ['Extra Utilities', '1.2.12', 'Utilidade'],
-  ['Thermal Expansion', '4.1.5', 'Tech'],
-  ['Not Enough Items', '1.0.5.120', 'Utilidade'],
-  ['Hardcore Questing Mode', '4.4.4', 'Progressão'],
-  ['Chisel 2', '2.9.5.11', 'Decoração'],
-  ['Carpenter\'s Blocks', '3.3.8', 'Decoração'],
-  ['Ars Magica 2', '1.4.0.009', 'Magia'],
-  ['Forestry', '4.2.16.64', 'Mundo'],
-] as const

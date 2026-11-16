@@ -8,7 +8,6 @@ export type JavaMode = 'bundled' | 'custom'
 export type JvmPreset = 'default' | 'fps' | 'low' | 'custom'
 export type Resolution = '1080p' | '720p' | 'fullscreen' | 'borderless'
 export type LaunchBehavior = 'tray' | 'keep' | 'close'
-export type Minimap = 'journeymap' | 'voxelmap' | 'none'
 
 export type AccountType = 'microsoft' | 'offline'
 export type GpuPreference = 'auto' | 'integrated' | 'dedicated'
@@ -33,8 +32,6 @@ export interface Settings {
   jvmArgs: string
   resolution: Resolution
   launchBehavior: LaunchBehavior
-  optionalMods: Record<string, boolean>
-  minimap: Minimap
   audio: AudioSettings
   ecoMode: boolean
   /** Com as animações do Windows desligadas, o launcher também fica parado. */
@@ -43,7 +40,6 @@ export interface Settings {
   gpuPreference: GpuPreference
   /** Modo compatibilidade: desliga os mods que exigem OpenGL 3.3 (Angelica, Mirai). */
   compatGpu: boolean
-  profileId: string
   /** Perfis de jogador (obrigatório ter ao menos um para jogar). */
   accounts: Account[]
   activeAccountId: string | null
@@ -53,22 +49,6 @@ export interface Settings {
 
 export { JVM_PRESETS } from '@/lib/jvm'
 
-export const OPTIONAL_MODS: { id: string; name: string; desc: string; tag: 'Performance' | 'Visual' | 'Áudio' | 'Utilidade'; impact: 'baixo' | 'médio' | 'alto'; conflicts?: string[] }[] = [
-  { id: 'fastcraft', name: 'FastCraft', desc: 'Otimizações de renderização e ticks. Ganho de FPS imediato na 1.7.10.', tag: 'Performance', impact: 'baixo', conflicts: ['angelica'] },
-  { id: 'angelica', name: 'Angelica', desc: 'Renderizador moderno (backport) com suporte a shaders. Substitui o FastCraft.', tag: 'Performance', impact: 'baixo', conflicts: ['fastcraft', 'optifine'] },
-  { id: 'optifine', name: 'OptiFine HD U E7', desc: 'Controle fino de gráficos, zoom e texturas conectadas.', tag: 'Visual', impact: 'médio', conflicts: ['angelica'] },
-  { id: 'shaders', name: 'Shaders Support', desc: 'Habilita shaderpacks (requer OptiFine ou Angelica). Pesado em GPUs fracas.', tag: 'Visual', impact: 'alto' },
-  { id: 'dynsurround', name: 'Dynamic Surroundings', desc: 'Sons ambientes, partículas de chuva e efeitos de bioma imersivos.', tag: 'Áudio', impact: 'médio' },
-  { id: 'betterfoliage', name: 'Better Foliage', desc: 'Grama e folhas volumétricas, mais vida ao mundo.', tag: 'Visual', impact: 'médio' },
-  { id: 'nei-addons', name: 'NEI Addons', desc: 'Receitas extras e integração com mods de tecnologia.', tag: 'Utilidade', impact: 'baixo' },
-  { id: 'inventorytweaks', name: 'Inventory Tweaks', desc: 'Organização automática do inventário com um clique.', tag: 'Utilidade', impact: 'baixo' },
-]
-
-export const PROFILES = [
-  { id: 'survival', name: 'Akashic Survival', sub: 'Forge 10.13.4.1614 · 186 mods', badge: 'Principal' },
-  { id: 'lite', name: 'Akashic Lite', sub: 'Sem shaders · 142 mods', badge: 'Leve' },
-  { id: 'creative', name: 'Build Realm', sub: 'Creative · 64 mods', badge: 'Evento' },
-]
 
 const ch = (volume: number): ChannelSettings => ({ volume, muted: false })
 
@@ -81,14 +61,11 @@ export const DEFAULT_SETTINGS: Settings = {
   jvmArgs: JVM_PRESETS[RECOMMENDED_PRESET].args,
   resolution: '1080p',
   launchBehavior: 'tray',
-  optionalMods: { fastcraft: true, angelica: false, optifine: true, shaders: false, dynsurround: true, betterfoliage: false, 'nei-addons': true, inventorytweaks: true },
-  minimap: 'journeymap',
   audio: { master: ch(0.8), bgm: ch(0.45), sfx: ch(0.7), sbfx: ch(0.5) },
   ecoMode: false,
   followSystemMotion: true,
   gpuPreference: 'auto',
   compatGpu: false,
-  profileId: 'survival',
   accounts: [],
   activeAccountId: null,
   modpackVersion: null,
@@ -104,7 +81,6 @@ interface SettingsStore {
   hydrate(): Promise<void>
   update(patch: Partial<Settings>): void
   setAudio(channel: keyof AudioSettings, patch: Partial<ChannelSettings>): void
-  toggleMod(id: string): string[]
   reset(): void
   addAccount(a: Omit<Account, 'id' | 'addedAt' | 'skinDataUrl'> & { skinDataUrl?: string | null }): Account
   /** Atualiza nick/skin (ex.: perfil Microsoft renovado). */
@@ -133,9 +109,11 @@ function merge(raw: unknown): Settings {
     volume: typeof audioIn[k]?.volume === 'number' ? Math.min(1, Math.max(0, audioIn[k]!.volume)) : d.audio[k].volume,
     muted: typeof audioIn[k]?.muted === 'boolean' ? audioIn[k]!.muted : d.audio[k].muted,
   })
+  // campos que não existem mais (mods opcionais e minimapa de mentira, perfis antigos) não voltam
+  const { optionalMods: _o, minimap: _m, profileId: _p, ...rest } = r as Partial<Settings> & Record<string, unknown>
   return {
     ...d,
-    ...r,
+    ...rest,
     version: 1,
     memoryGb: Math.min(16, Math.max(2, Number(r.memoryGb) || d.memoryGb)),
     // versões antigas usavam 'auto' (detectar Java do sistema): migra para o Zulu incluso
@@ -146,7 +124,6 @@ function merge(raw: unknown): Settings {
       : {}),
     modpackVersion: typeof r.modpackVersion === 'string' && /^\d+(\.\d+)*$/.test(r.modpackVersion) ? r.modpackVersion : null,
     accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
-    optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
     followSystemMotion: typeof r.followSystemMotion === 'boolean' ? r.followSystemMotion : d.followSystemMotion,
     compatGpu: r.compatGpu === true,
     gpuPreference: r.gpuPreference === 'integrated' || r.gpuPreference === 'dedicated' ? r.gpuPreference : 'auto',
@@ -199,23 +176,6 @@ export const useSettings = create<SettingsStore>((set, get) => {
     setAudio(channel, patch) {
       const s = get().settings
       commit({ ...s, audio: { ...s.audio, [channel]: { ...s.audio[channel], ...patch } } })
-    },
-    /** Alterna um mod opcional, desligando conflitos. Retorna nomes desativados. */
-    toggleMod(id) {
-      const s = get().settings
-      const next = { ...s.optionalMods, [id]: !s.optionalMods[id] }
-      const disabled: string[] = []
-      if (next[id]) {
-        const mod = OPTIONAL_MODS.find((m) => m.id === id)
-        mod?.conflicts?.forEach((c) => {
-          if (next[c]) {
-            next[c] = false
-            disabled.push(OPTIONAL_MODS.find((m) => m.id === c)?.name ?? c)
-          }
-        })
-      }
-      commit({ ...s, optionalMods: next })
-      return disabled
     },
     reset() {
       // restaurar padrões nunca apaga os perfis

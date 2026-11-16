@@ -213,6 +213,64 @@ pub fn set_compat(instance: &Path, on: bool) -> Result<Vec<String>> {
     Ok(changed)
 }
 
+/// Um mod da pasta mods/ do jogo instalado (lido do próprio jar).
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ModInfo {
+    /// nome do arquivo (sem o sufixo do modo compatibilidade)
+    pub file: String,
+    /// nome do mcmod.info (ou o nome do arquivo)
+    pub name: String,
+    pub version: Option<String>,
+    /// false = desligado pelo modo compatibilidade
+    pub enabled: bool,
+}
+
+/// Nome e versão do primeiro mod do mcmod.info (lista ou {"modList": [...]}).
+fn mcmod_info(jar: &Path) -> Option<(String, Option<String>)> {
+    use std::io::Read;
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(jar).ok()?).ok()?;
+    let entry = zip.by_name("mcmod.info").ok()?;
+    let mut raw = Vec::new();
+    entry.take(1 << 20).read_to_end(&mut raw).ok()?;
+    let text = String::from_utf8_lossy(&raw);
+    let v: serde_json::Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+    let first = match &v {
+        serde_json::Value::Array(a) => a.first()?.clone(),
+        serde_json::Value::Object(o) => o.get("modList")?.as_array()?.first()?.clone(),
+        _ => return None,
+    };
+    let name = first.get("name")?.as_str()?.trim().to_string();
+    let version = first.get("version").and_then(|v| v.as_str()).map(|v| v.trim().to_string()).filter(|v| !v.is_empty() && !v.contains("${"));
+    (!name.is_empty()).then_some((name, version))
+}
+
+/// Os mods de verdade da pasta do jogo (mods/ e mods/1.7.10/), em ordem alfabética.
+pub fn list_mods(instance: &Path) -> Vec<ModInfo> {
+    let mut out = Vec::new();
+    for dir in [instance.join("mods"), instance.join("mods").join("1.7.10")] {
+        for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = e.path();
+            if !path.is_file() {
+                continue;
+            }
+            let raw = e.file_name().to_string_lossy().into_owned();
+            let (file, enabled) = match raw.strip_suffix(COMPAT_OFF) {
+                Some(base) => (base.to_string(), false),
+                None => (raw.clone(), true),
+            };
+            let lower = file.to_ascii_lowercase();
+            if !(lower.ends_with(".jar") || lower.ends_with(".zip")) {
+                continue;
+            }
+            let (name, version) = mcmod_info(&path).unwrap_or_else(|| (file.trim_end_matches(".jar").trim_end_matches(".zip").to_string(), None));
+            out.push(ModInfo { file, name, version, enabled });
+        }
+    }
+    out.sort_by_key(|m| m.name.to_ascii_lowercase());
+    out
+}
+
 /// Resumo do pack instalado para o log: quantos mods e de onde vem o Forge.
 pub fn layout_report(instance: &Path) -> (usize, bool) {
     let mods = std::fs::read_dir(instance.join("mods"))
@@ -684,6 +742,33 @@ mod tests {
         assert_eq!(set_compat(&dir, false).unwrap().len(), 3);
         assert!(dir.join("mods/angelica-2.2.43.jar").exists());
         assert_eq!(layout_report(&dir).0, 4);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn lista_os_mods_reais_da_pasta() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("forbidden-mods-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("mods/1.7.10")).unwrap();
+        let jar = |path: &str, info: Option<&str>| {
+            let mut z = zip::ZipWriter::new(std::fs::File::create(dir.join(path)).unwrap());
+            if let Some(info) = info {
+                z.start_file("mcmod.info", zip::write::SimpleFileOptions::default()).unwrap();
+                z.write_all(info.as_bytes()).unwrap();
+            }
+            z.finish().unwrap();
+        };
+        jar("mods/Thaumcraft-1.7.10-4.2.3.5.jar", Some(r#"[{"modid":"Thaumcraft","name":"Thaumcraft","version":"4.2.3.5"}]"#));
+        jar("mods/ae2.jar", Some(r#"{"modListVersion":2,"modList":[{"modid":"appliedenergistics2","name":"Applied Energistics 2","version":"rv3-beta-1093-GTNH"}]}"#));
+        jar("mods/1.7.10/ForgeMultipart-1.7.12.jar", None);
+        jar("mods/angelica-2.2.43.jar.compat-off", Some(r#"[{"modid":"angelica","name":"Angelica","version":"${version}"}]"#));
+        std::fs::write(dir.join("mods/leia.txt"), "x").unwrap();
+        let mods = list_mods(&dir);
+        let names: Vec<_> = mods.iter().map(|m| m.name.as_str()).collect();
+        assert_eq!(names, vec!["Angelica", "Applied Energistics 2", "ForgeMultipart-1.7.12", "Thaumcraft"]);
+        assert!(!mods[0].enabled && mods[0].file == "angelica-2.2.43.jar" && mods[0].version.is_none(), "{:?}", mods[0]);
+        assert_eq!(mods[1].version.as_deref(), Some("rv3-beta-1093-GTNH"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -3,7 +3,7 @@ import { FEATURES } from '@/lib/features'
 import type { CrashDiagnosis } from '@/lib/bridge'
 
 export type Route = 'home' | 'modpack' | 'news' | 'settings' | 'skin'
-export type SettingsTab = 'performance' | 'game' | 'mods' | 'audio'
+export type SettingsTab = 'performance' | 'game' | 'audio'
 
 interface UiStore {
   route: Route

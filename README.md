@@ -101,7 +101,7 @@ src/audio/AudioManager   barramentos BGM / SFX / SBFX, síntese + suporte a arqu
 src/store/               settings (persistente), launch (máquina de estados mock), server, ui, toasts
 src/components/fx        partículas em canvas + fundo em camadas com parallax
 src/components/home      status do servidor, cards, Action Bar e botão JOGAR
-src/components/settings  abas: Desempenho & Java, Jogo & Vídeo, Mods Opcionais, Áudio & Estética
+src/components/settings  abas: Desempenho & Java (inclui Placa de vídeo), Jogo & Vídeo, Áudio & Visual
 src/pages/               Início, Modpack, Changelog, Configurações
 ```
 

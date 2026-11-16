@@ -330,6 +330,13 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
     Ok(())
 }
 
+/// Os mods instalados de verdade na pasta do jogo (lidos dos jars).
+#[tauri::command]
+pub async fn game_mods(app: AppHandle) -> Result<Vec<modpack::ModInfo>, String> {
+    let p = paths(&app).map_err(|e| e.to_string())?;
+    tokio::task::spawn_blocking(move || modpack::list_mods(&p.instance)).await.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn game_cancel(state: State<'_, GameState>) {
     state.cancel.store(true, Ordering::Relaxed);

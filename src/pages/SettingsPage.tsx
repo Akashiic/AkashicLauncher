@@ -1,18 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Cpu, Gamepad2, Puzzle, AudioLines } from 'lucide-react'
+import { Cpu, Gamepad2, AudioLines } from 'lucide-react'
 import { useUi, type SettingsTab } from '@/store/ui'
 import { audio } from '@/audio/AudioManager'
 import { PerformanceTab } from '@/components/settings/PerformanceTab'
 import { GameTab } from '@/components/settings/GameTab'
 import { AudioTab } from '@/components/settings/AudioTab'
-import { OptionalModsList } from '@/components/settings/OptionalModsList'
-import { Section } from '@/components/settings/SettingRow'
 import { cn, EASE } from '@/lib/cn'
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Cpu }[] = [
   { id: 'performance', label: 'Desempenho', icon: Cpu },
   { id: 'game', label: 'Jogo & Vídeo', icon: Gamepad2 },
-  { id: 'mods', label: 'Mods opcionais', icon: Puzzle },
   { id: 'audio', label: 'Áudio & Visual', icon: AudioLines },
 ]
 
@@ -59,11 +56,6 @@ export function SettingsPage() {
           >
             {tab === 'performance' && <PerformanceTab />}
             {tab === 'game' && <GameTab />}
-            {tab === 'mods' && (
-              <Section title="Mods opcionais / client-side" desc="Ative só o que quiser. Mods conflitantes são desligados automaticamente.">
-                <OptionalModsList />
-              </Section>
-            )}
             {tab === 'audio' && <AudioTab />}
           </motion.div>
         </AnimatePresence>
