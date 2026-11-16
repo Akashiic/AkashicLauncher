@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Cpu, ExternalLink, FileText, MemoryStick, PackageX, X } from 'lucide-react'
 import { useUi } from '@/store/ui'
+import { useSettings } from '@/store/settings'
+import { useLaunch } from '@/store/launch'
 import { bridge } from '@/lib/bridge'
 import { audio } from '@/audio/AudioManager'
 import { toast } from '@/store/toasts'
@@ -66,6 +68,26 @@ export function CrashHelp() {
                 <div className="mt-3 rounded-xl border border-line bg-bg/60 px-3 py-2 text-xs">
                   <span className="text-subtle">Placa(s) de vídeo neste PC: </span>
                   <span className="text-fg">{help.gpus.join(' · ')}</span>
+                </div>
+              )}
+
+              {help.kind === 'gpu_unsupported' && (
+                <div className="mt-4 rounded-xl border border-accent/50 bg-brand/25 px-3.5 py-3">
+                  <div className="text-sm font-semibold text-fg">Quer jogar mesmo assim?</div>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">O modo compatibilidade desliga só o Angelica e o Distant Horizons, que exigem OpenGL 3.3. O resto do modpack fica igual (sem shaders, sem terreno distante e com menos FPS).</p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="mt-2.5"
+                    onClick={() => {
+                      useSettings.getState().update({ compatGpu: true })
+                      setHelp(null)
+                      toast({ kind: 'success', title: 'Modo compatibilidade ligado', body: 'Abrindo o jogo sem os mods que exigem OpenGL 3.3.' }, 4000)
+                      window.setTimeout(() => useLaunch.getState().play(), 400)
+                    }}
+                  >
+                    Ativar modo compatibilidade e jogar
+                  </Button>
                 </div>
               )}
 

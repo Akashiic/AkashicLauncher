@@ -41,6 +41,8 @@ export interface Settings {
   followSystemMotion: boolean
   /** Placa de vídeo do jogo (preferência de gráficos do Windows para o Java do jogo). */
   gpuPreference: GpuPreference
+  /** Modo compatibilidade: desliga os mods que exigem OpenGL 3.3 (Angelica, Mirai). */
+  compatGpu: boolean
   profileId: string
   /** Perfis de jogador (obrigatório ter ao menos um para jogar). */
   accounts: Account[]
@@ -85,6 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ecoMode: false,
   followSystemMotion: true,
   gpuPreference: 'auto',
+  compatGpu: false,
   profileId: 'survival',
   accounts: [],
   activeAccountId: null,
@@ -145,6 +148,7 @@ function merge(raw: unknown): Settings {
     accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
     optionalMods: { ...d.optionalMods, ...(r.optionalMods ?? {}) },
     followSystemMotion: typeof r.followSystemMotion === 'boolean' ? r.followSystemMotion : d.followSystemMotion,
+    compatGpu: r.compatGpu === true,
     gpuPreference: r.gpuPreference === 'integrated' || r.gpuPreference === 'dedicated' ? r.gpuPreference : 'auto',
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }

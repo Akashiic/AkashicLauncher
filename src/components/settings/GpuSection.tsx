@@ -3,6 +3,7 @@ import { AlertTriangle, BatteryCharging, Cpu, ExternalLink, Loader2, MonitorCog,
 import { useSettings, type GpuPreference } from '@/store/settings'
 import { bridge, type GpuInfo, type GpuReport } from '@/lib/bridge'
 import { Segmented } from '@/components/ui/Segmented'
+import { Switch } from '@/components/ui/Switch'
 import { Button } from '@/components/ui/Button'
 import { Section } from './SettingRow'
 import { audio } from '@/audio/AudioManager'
@@ -76,6 +77,7 @@ function GpuCard({ g, recommended }: { g: GpuInfo; recommended: boolean }) {
 /** Configurações → Desempenho: placas do PC, recomendação e qual placa o jogo usa. */
 export function GpuSection() {
   const pref = useSettings((s) => s.settings.gpuPreference)
+  const compat = useSettings((s) => s.settings.compatGpu)
   const update = useSettings((s) => s.update)
   const [report, setReport] = useState<GpuReport | null>(null)
   const [loading, setLoading] = useState(true)
@@ -142,6 +144,32 @@ export function GpuSection() {
           </div>
         </div>
       )}
+
+      {/* placas sem OpenGL 3.3 (ex.: Intel HD de 2011): o modo compatibilidade deixa jogar */}
+      {(() => {
+        const unsupported = !!report && report.gpus.length > 0 && report.recommended === null && report.gpus.some((g) => g.kind !== 'basic')
+        return (
+          <div className={cn('mt-4 rounded-xl border px-3.5 py-3', unsupported && !compat ? 'border-warning/50 bg-warning/10' : 'border-line bg-bg/40')}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-fg">Modo compatibilidade (placa de vídeo antiga)</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-muted">
+                  Desliga só o Angelica e o Distant Horizons (Mirai), que exigem OpenGL 3.3. O resto do modpack fica igual, mas sem shaders, sem terreno distante e com menos FPS.
+                  {unsupported && !compat && <span className="text-warning"> Recomendado para este PC: sem ele o jogo não abre.</span>}
+                </div>
+              </div>
+              <Switch
+                checked={compat}
+                label="Modo compatibilidade"
+                onChange={(compatGpu) => {
+                  update({ compatGpu })
+                  toast({ kind: 'info', title: compatGpu ? 'Modo compatibilidade ligado' : 'Modo compatibilidade desligado', body: 'Vale no próximo JOGAR.' }, 2500)
+                }}
+              />
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="mt-3 flex justify-end">
         <Button size="sm" variant="ghost" icon={<RefreshCw size={12} />} onClick={load} disabled={loading}>

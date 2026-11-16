@@ -79,6 +79,8 @@ export interface PlayRequest {
   javaPath: string | null
   pack: { tag: string; url: string; size: number; sha256?: string } | null
   gpuPreference?: 'auto' | 'integrated' | 'dedicated'
+  /** desliga os mods que exigem OpenGL 3.3 */
+  compatGpu?: boolean
 }
 
 /** Placa de vídeo (src-tauri/src/game/gpu.rs). */

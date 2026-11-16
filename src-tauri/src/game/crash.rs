@@ -126,7 +126,8 @@ fn gpu_driver(evidence: String, found: Vec<super::gpu::Gpu>) -> Diagnosis {
                 usable.iter().map(|g| g.name.as_str()).collect::<Vec<_>>().join(", ")
             ),
             steps: vec![
-                "Para jogar o Forbidden neste PC é preciso uma placa de vídeo dedicada.".into(),
+                "Dá para jogar já com o modo compatibilidade (botão acima), sem o Angelica e o Distant Horizons.".into(),
+                "Para jogar com tudo (shaders, terreno distante e mais FPS), é preciso uma placa de vídeo dedicada.".into(),
                 "Em PC de mesa, um modelo de entrada já serve: NVIDIA GT 1030 / GTX 1050 ou AMD RX 550 / RX 6400 (encaixe PCI Express).".into(),
                 "Depois de instalar a placa, ligue o monitor nela (não na saída da placa-mãe) e instale o driver do fabricante.".into(),
                 "Em notebook não dá para trocar a placa de vídeo.".into(),
@@ -197,7 +198,7 @@ mod tests {
         let d = diagnose(ANGELICA, || gpus(&[("Intel(R) HD Graphics", "9.17.10.4459")])).unwrap();
         assert_eq!(d.kind, "gpu_unsupported");
         assert!(d.links.is_empty());
-        assert!(d.steps[0].contains("placa de vídeo dedicada"));
+        assert!(d.steps[0].contains("modo compatibilidade"));
     }
 
     #[test]
