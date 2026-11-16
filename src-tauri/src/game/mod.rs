@@ -262,6 +262,21 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
         Err(e) => log(app, format!("Não deu para aplicar o modo compatibilidade: {e:#}")),
     }
 
+    // só nos testes: troca um mod do pack por um jar recém-compilado ("prefixo=caminho")
+    #[cfg(test)]
+    if let Ok(spec) = std::env::var("FORBIDDEN_E2E_REPLACE_MOD") {
+        if let Some((prefix, jar)) = spec.split_once('=') {
+            for e in std::fs::read_dir(p.instance.join("mods")).into_iter().flatten().flatten() {
+                if e.file_name().to_string_lossy().starts_with(prefix) {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+            let name = std::path::Path::new(jar).file_name().map(|n| n.to_owned()).unwrap_or_default();
+            std::fs::copy(jar, p.instance.join("mods").join(&name))?;
+            log(app, format!("Teste: {prefix}* trocado por {}", name.to_string_lossy()));
+        }
+    }
+
     // resumo para o log: um pack sem mods nunca passa em silêncio
     let (mod_count, pack_forge) = modpack::layout_report(&p.instance);
     log(app, format!(

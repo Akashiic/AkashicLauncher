@@ -92,6 +92,41 @@ jobs:
       - name: Interface vazia (o teste não precisa dela)
         run: mkdir -p dist && echo '<!doctype html>' > dist/index.html
 
+      # NeoStates com a correção para rodar sem o Angelica (ainda fora do pack publicado)
+      - name: NeoStates da branch de correção
+        if: matrix.compat == '1'
+        uses: actions/checkout@v5
+        with:
+          repository: Akashiic/Neo-States
+          ref: claude/sem-angelica-dragonapi
+          path: neo-states
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        if: matrix.compat == '1'
+        with:
+          distribution: zulu
+          java-version: |
+            8
+            17
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.compat == '1'
+
+      - name: Compila o NeoStates
+        if: matrix.compat == '1'
+        working-directory: neo-states
+        env:
+          VERSION: 0.1.0-alpha.11-teste
+        run: |
+          ./gradlew build -x javadoc -x test -x spotlessCheck --no-daemon \
+            -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64
+          jar="$PWD/build/libs/NeoStates-$VERSION.jar"
+          test -f "$jar"
+          echo "FORBIDDEN_E2E_REPLACE_MOD=NeoStates-=$jar" >> "$GITHUB_ENV"
+
       - name: JOGAR com OpenGL 3.1
         working-directory: src-tauri
         env:
