@@ -97,6 +97,13 @@ pub struct PlayRequest {
     /// modo compatibilidade: desliga os mods que exigem OpenGL 3.3 (placas antigas)
     #[serde(default)]
     compat_gpu: bool,
+    /// false = não verifica nem repara o modpack ao jogar (para testes com mods trocados à mão)
+    #[serde(default = "yes")]
+    verify_pack: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 fn log<R: Runtime>(app: &AppHandle<R>, s: impl AsRef<str>) {
@@ -183,7 +190,18 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
 
     // 3) Modpack: instala na 1ª vez, atualiza só o que mudou, repara o que sumiu
     let mut phase = "verifying";
+    // verificação desligada: abre com os arquivos como estão (só instala se ainda não houver pack)
+    let skip = if req.verify_pack { None } else { modpack::installed(&p.instance) };
+    if let Some(state) = &skip {
+        modpack::recover(&p.instance);
+        log(app, format!(
+            "Verificação do modpack desligada: abrindo {} com os arquivos como estão na pasta (nada é reparado nem atualizado).",
+            state.tag
+        ));
+        let _ = app.emit("launch:pack-installed", &state.tag);
+    }
     match &req.pack {
+        _ if skip.is_some() => {}
         Some(pack) => {
             prog.stage("verifying", &format!("Modpack {}", pack.tag));
             let result: Result<()> = async {
@@ -436,6 +454,7 @@ mod e2e {
             pack: Some(pack.clone()),
             gpu_preference: String::new(),
             compat_gpu: std::env::var("FORBIDDEN_E2E_COMPAT").is_ok_and(|v| v == "1"),
+            verify_pack: true,
         };
         let state = handle.state::<GameState>();
         let progress = Arc::new(Progress::default());

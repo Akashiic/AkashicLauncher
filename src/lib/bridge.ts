@@ -81,6 +81,8 @@ export interface PlayRequest {
   gpuPreference?: 'auto' | 'integrated' | 'dedicated'
   /** desliga os mods que exigem OpenGL 3.3 */
   compatGpu?: boolean
+  /** false = não verifica nem repara o modpack */
+  verifyPack?: boolean
 }
 
 /** Um mod da pasta mods/ do jogo instalado (src-tauri/src/game/modpack.rs). */

@@ -5,7 +5,8 @@ import { useUi } from '@/store/ui'
 import { bridge } from '@/lib/bridge'
 import { toast } from '@/store/toasts'
 import { audio } from '@/audio/AudioManager'
-import { Section } from './SettingRow'
+import { Section, Row } from './SettingRow'
+import { Switch } from '@/components/ui/Switch'
 import { GlowCard } from '@/components/ui/GlowCard'
 import { cn } from '@/lib/cn'
 
@@ -66,7 +67,7 @@ export function GameTab() {
       },
     },
     { icon: ScrollText, label: 'Ver logs em tempo real', sub: 'latest.log', run: () => (audio.play('open'), setLogsOpen(true)) },
-    { icon: ShieldCheck, label: 'Verificar integridade', sub: 'SHA-1 de 1284 arquivos', run: verifyOnly },
+    { icon: ShieldCheck, label: 'Verificar arquivos', sub: 'volta ao pack original', run: verifyOnly },
   ]
 
   return (
@@ -85,6 +86,26 @@ export function GameTab() {
             <OptionCard key={b.value} active={s.launchBehavior === b.value} onClick={() => update({ launchBehavior: b.value })} icon={b.icon} label={b.label} sub={b.sub} />
           ))}
         </div>
+      </Section>
+
+      <Section title="Modpack" desc="O que o launcher faz com a pasta do jogo a cada JOGAR.">
+        <Row
+          title="Verificar e reparar o modpack ao jogar"
+          desc={
+            s.verifyPack
+              ? 'Ligado: confere os arquivos, repara o que sumiu ou mudou e instala atualizações do GitHub antes de abrir.'
+              : 'Desligado: abre com os arquivos exatamente como estão (mods trocados à mão continuam). Nada é reparado nem atualizado até você religar ou usar "Verificar arquivos".'
+          }
+        >
+          <Switch
+            checked={s.verifyPack}
+            label="Verificar e reparar o modpack ao jogar"
+            onChange={(verifyPack) => {
+              update({ verifyPack })
+              toast({ kind: verifyPack ? 'success' : 'warning', title: verifyPack ? 'Verificação do modpack ligada' : 'Verificação do modpack desligada', body: verifyPack ? 'No próximo JOGAR o pack volta a ficar igual ao do GitHub.' : 'O launcher não mexe mais nos arquivos do jogo ao jogar.' }, 3500)
+            }}
+          />
+        </Row>
       </Section>
 
       <Section title="Ferramentas rápidas">

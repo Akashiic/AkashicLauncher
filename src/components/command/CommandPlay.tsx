@@ -90,6 +90,8 @@ export function CommandPlay() {
   const mp = useModpackState()
   const plan = useModpack((s) => s.plan)
   const installedVersion = useSettings((st) => st.settings.modpackVersion)
+  // verificação desligada com pack instalado: o JOGAR não instala nem atualiza
+  const frozen = useSettings((st) => !st.settings.verifyPack) && !!installedVersion
   const { state: server, players, maxPlayers, cycleState } = useServer()
   const route = useUi((s) => s.route)
   const { playHover, setPlayHover, firePulse } = useFx()
@@ -110,6 +112,7 @@ export function CommandPlay() {
     switch (phase) {
       case 'ready':
         // o botão diz o que vai acontecer: instalar, atualizar ou jogar
+        if (frozen) return { key: 'ready', label: 'JOGAR', right: null, icon: <Play size={22} fill="currentColor" /> }
         if (mp.kind === 'install') return { key: 'ready-install', label: 'INSTALAR', right: null, icon: <Download size={22} /> }
         if (mp.kind === 'update') return { key: 'ready-update', label: 'ATUALIZAR', right: null, icon: <Download size={22} /> }
         return { key: 'ready', label: 'JOGAR', right: null, icon: <Play size={22} fill="currentColor" /> }
@@ -282,7 +285,9 @@ export function CommandPlay() {
                 <span className={cn('font-semibold', s.text)}>{s.label}</span>
               </button>
             </Tooltip>
-            {server === 'online' && (mp.kind === 'update' || mp.kind === 'install') ? (
+            {server === 'online' && frozen ? (
+              <span className="truncate text-warning">· verificação do modpack desligada</span>
+            ) : server === 'online' && (mp.kind === 'update' || mp.kind === 'install') ? (
               <span className="truncate">
                 ·{' '}
                 <span className="font-semibold text-accent-text">{mp.kind === 'update' ? `TEOF-${mp.installed} → ${mp.latest.tag}` : mp.latest.tag}</span>

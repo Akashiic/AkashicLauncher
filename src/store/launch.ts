@@ -358,6 +358,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
         pack,
         gpuPreference: settings.gpuPreference,
         compatGpu: settings.compatGpu,
+        verifyPack: settings.verifyPack,
       })
       const now = get().phase
       if (now === 'verifying' || now === 'downloading') set({ phase: 'launching' })

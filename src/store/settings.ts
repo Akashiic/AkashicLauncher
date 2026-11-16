@@ -40,6 +40,8 @@ export interface Settings {
   gpuPreference: GpuPreference
   /** Modo compatibilidade: desliga os mods que exigem OpenGL 3.3 (Angelica, Mirai). */
   compatGpu: boolean
+  /** Verificar e reparar o modpack ao jogar (desligado: abre com os arquivos como estão, para testes). */
+  verifyPack: boolean
   /** Perfis de jogador (obrigatório ter ao menos um para jogar). */
   accounts: Account[]
   activeAccountId: string | null
@@ -66,6 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   followSystemMotion: true,
   gpuPreference: 'auto',
   compatGpu: false,
+  verifyPack: true,
   accounts: [],
   activeAccountId: null,
   modpackVersion: null,
@@ -126,6 +129,7 @@ function merge(raw: unknown): Settings {
     accounts: Array.isArray(r.accounts) ? r.accounts.filter(validAccount).map((a) => ({ ...a, skinDataUrl: validSkin(a.skinDataUrl) })) : [],
     followSystemMotion: typeof r.followSystemMotion === 'boolean' ? r.followSystemMotion : d.followSystemMotion,
     compatGpu: r.compatGpu === true,
+    verifyPack: r.verifyPack !== false,
     gpuPreference: r.gpuPreference === 'integrated' || r.gpuPreference === 'dedicated' ? r.gpuPreference : 'auto',
     audio: { master: chan('master'), bgm: chan('bgm'), sfx: chan('sfx'), sbfx: chan('sbfx') },
   }
