@@ -494,7 +494,7 @@ mod e2e {
                 .flatten()
                 .filter_map(|e| std::fs::read_to_string(e.path()).ok())
                 .collect();
-            for l in t.lines().filter(|l| l.contains("successfully loaded") || l.contains("OpenGL") || l.contains("Exception") || l.contains("Modo compatibilidade")).take(40) {
+            for l in t.lines().filter(|l| l.contains("successfully loaded") || l.contains("OpenGL") || l.contains("Exception") || l.contains("Modo compatibilidade") || l.contains("NeoStates x DragonAPI") || l.contains("Teste:")).take(60) {
                 println!("{l}");
             }
             // erros de mixin completos (o crash report corta a causa)
