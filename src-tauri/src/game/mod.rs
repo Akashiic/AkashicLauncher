@@ -4,6 +4,7 @@
 //! → Forge e bibliotecas → nativos → processo do jogo. O progresso vai para a
 //! interface pelo evento `launch:progress`; os logs, por `launch:logs`.
 
+pub mod crash;
 pub mod forge;
 pub mod java;
 pub mod launch;

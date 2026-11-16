@@ -6,6 +6,7 @@ import { WindowControls } from '@/components/layout/WindowControls'
 import { HomeHero } from '@/components/layout/HomeHero'
 import { Panel } from '@/components/layout/Panel'
 import { LogsModal } from '@/components/layout/LogsModal'
+import { CrashHelp } from '@/components/layout/CrashHelp'
 import { Toaster } from '@/components/layout/Toaster'
 import { AudioUnlock } from '@/components/layout/AudioUnlock'
 import { Intro } from '@/components/layout/Intro'
@@ -141,6 +142,7 @@ export default function App() {
         {hydrated && <Intro />}
         <WindowControls />
         <LogsModal />
+        <CrashHelp />
         <Toaster />
         <AudioUnlock />
       </div>

@@ -92,7 +92,19 @@ fn open_external(app: AppHandle, url: String) -> Result<(), String> {
     let u = url::Url::parse(&url).map_err(|e| e.to_string())?;
     let host = u.host_str().unwrap_or_default();
     // GitHub (releases) e as páginas oficiais do login Microsoft/Xbox/Minecraft
-    const HOSTS: [&str; 6] = ["github.com", "login.microsoftonline.com", "login.live.com", "account.microsoft.com", "www.xbox.com", "www.minecraft.net"];
+    // e os sites de driver de vídeo (diagnóstico de crash)
+    const HOSTS: [&str; 10] = [
+        "github.com",
+        "login.microsoftonline.com",
+        "login.live.com",
+        "account.microsoft.com",
+        "www.xbox.com",
+        "www.minecraft.net",
+        "www.nvidia.com",
+        "www.amd.com",
+        "www.intel.com",
+        "www.intel.com.br",
+    ];
     let allowed = u.scheme() == "https" && (HOSTS.contains(&host) || host.ends_with(".github.com"));
     if !allowed {
         return Err("link não permitido".into());

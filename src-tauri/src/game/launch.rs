@@ -163,6 +163,21 @@ pub fn redact(cmd: &[String]) -> String {
 struct ExitInfo {
     code: Option<i32>,
     crash_report: Option<String>,
+    /// problema reconhecido no relatório/log, com o que o jogador pode fazer
+    diagnosis: Option<super::crash::Diagnosis>,
+}
+
+/// Lê o relatório de crash (ou o fim do log do jogo) e tenta reconhecer o problema.
+fn diagnose_exit(instance: &Path, crash_report: Option<&str>) -> Option<super::crash::Diagnosis> {
+    let text = match crash_report.and_then(|p| std::fs::read_to_string(p).ok()) {
+        Some(t) => t,
+        None => {
+            let log = std::fs::read(instance.join("logs").join("fml-client-latest.log")).or_else(|_| std::fs::read(instance.join("logs").join("latest.log"))).ok()?;
+            // só o fim: o erro que fechou o jogo está lá
+            String::from_utf8_lossy(&log[log.len().saturating_sub(256 * 1024)..]).into_owned()
+        }
+    };
+    super::crash::diagnose(&text, super::crash::detect_gpus)
 }
 
 fn newest_crash_report(instance: &Path, since: SystemTime) -> Option<String> {
@@ -360,8 +375,15 @@ pub async fn spawn<R: Runtime>(app: &AppHandle<R>, cmd: Vec<String>, instance: P
         state.kill.lock().unwrap().take();
         state.running.store(false, std::sync::atomic::Ordering::Relaxed);
         let code = status.and_then(|s| s.code());
-        let crash_report = if code.is_some_and(|c| c != 0) { newest_crash_report(&instance, started_at) } else { None };
-        let _ = exit_app.emit("game:exit", ExitInfo { code, crash_report });
+        let failed = code.is_some_and(|c| c != 0);
+        let crash_report = if failed { newest_crash_report(&instance, started_at) } else { None };
+        let diagnosis = if failed {
+            let (dir, report) = (instance.clone(), crash_report.clone());
+            tokio::task::spawn_blocking(move || diagnose_exit(&dir, report.as_deref())).await.ok().flatten()
+        } else {
+            None
+        };
+        let _ = exit_app.emit("game:exit", ExitInfo { code, crash_report, diagnosis });
     });
     Ok(())
 }

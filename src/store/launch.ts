@@ -261,7 +261,7 @@ export const useLaunch = create<LaunchStore>((set, get) => {
       game.on('game:window', () => {
         if (get().phase === 'launching') running()
       }),
-      game.on('game:exit', ({ code, crashReport }) => {
+      game.on('game:exit', ({ code, crashReport, diagnosis }) => {
         const p = get().phase
         if (p !== 'running' && p !== 'launching' && p !== 'stopping') return
         window.clearTimeout(hideTimer)
@@ -269,7 +269,12 @@ export const useLaunch = create<LaunchStore>((set, get) => {
         log(`[Launcher] O jogo fechou (código ${code ?? '—'}).`)
         bridge.window.setGameRunning(false)
         bridge.window.show() // volta da bandeja
-        if (code !== null && code !== 0 && p !== 'stopping') {
+        if (code !== null && code !== 0 && p !== 'stopping' && diagnosis) {
+          // problema conhecido: janela com o passo a passo (e o site do driver)
+          audio.play('error')
+          log(`[Launcher] Diagnóstico: ${diagnosis.title}${diagnosis.gpus.length ? ` · placa(s): ${diagnosis.gpus.join(', ')}` : ''}`)
+          useUi.getState().setCrashHelp({ ...diagnosis, report: crashReport })
+        } else if (code !== null && code !== 0 && p !== 'stopping') {
           audio.play('error')
           toast({
             kind: 'error',

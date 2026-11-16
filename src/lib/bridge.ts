@@ -107,12 +107,23 @@ export interface UpdateSummary {
 
 export type PackRef = NonNullable<PlayRequest['pack']>
 
+/** Problema reconhecido num crash (src-tauri/src/game/crash.rs). */
+export interface CrashDiagnosis {
+  kind: 'gpu_driver' | 'memory' | 'duplicate_mods' | 'missing_mods'
+  title: string
+  body: string
+  steps: string[]
+  gpus: string[]
+  links: { label: string; url: string }[]
+  evidence: string
+}
+
 export interface GameEvents {
   'launch:progress': NativeProgress
   'launch:logs': string[]
   'launch:pack-installed': string
   'game:window': null
-  'game:exit': { code: number | null; crashReport: string | null }
+  'game:exit': { code: number | null; crashReport: string | null; diagnosis: CrashDiagnosis | null }
   'launch:pack-updated': UpdateSummary
   'launch:notice': { kind: 'info' | 'warning' | 'error' | 'success'; title: string; body?: string }
 }
