@@ -178,6 +178,23 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
         None => java::ensure(&net, &prog, &p.runtime, &p.cache, p.bundled.as_deref()).await?,
     };
     log(app, format!("Java: {}", java.display()));
+    // Intel HD 2000/3000 no Windows 10: o driver só dá OpenGL acelerado a um Java
+    // que não se declara "Windows 10" (modo compatibilidade, placa Intel antiga)
+    let java = if req.compat_gpu && cfg!(windows) && gpu::detect().gpus.iter().any(|g| g.legacy) {
+        match java::legacy_gl_java(&java) {
+            Ok(copy) if copy != java => {
+                log(app, format!("Placa Intel antiga: usando {} (cópia do Java sem a marca de Windows 10, que o driver da Intel HD 2000/3000 recusa).", copy.display()));
+                copy
+            }
+            Ok(_) => java,
+            Err(e) => {
+                log(app, format!("Não deu para preparar o Java para a placa Intel antiga: {e:#}"));
+                java
+            }
+        }
+    } else {
+        java
+    };
     if let Some(label) = gpu::apply_preference(&java, &req.gpu_preference) {
         log(app, format!("Placa de vídeo do jogo: {label}"));
     }

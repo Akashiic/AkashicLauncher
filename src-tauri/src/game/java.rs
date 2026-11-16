@@ -133,3 +133,117 @@ pub async fn ensure(net: &Net, prog: &Progress, runtime_root: &Path, cache: &Pat
     fs::write(&marker, pkg.url).await?;
     Ok(exe)
 }
+
+// ---- Intel HD 2000/3000 (driver de 2011-2016) no Windows 10 ----
+//
+// O driver antigo da Intel não entrega OpenGL acelerado a programas que se
+// declaram compatíveis com o Windows 10 (ou 8.1) no manifesto do .exe: o
+// Minecraft quebra com "Pixel format not accelerated" já no Display.create
+// vanilla. O Java passou a declarar isso no 8u60 (por isso essas placas só
+// rodavam com Java 8u51). Aqui fazemos uma cópia do javaw.exe com essas duas
+// linhas do manifesto viradas comentário XML do MESMO tamanho: nada muda na
+// estrutura do .exe, só o que o Windows (e o driver) enxergam.
+
+const WIN81: &str = "<supportedOS Id=\"{1f676c76-80e1-4239-95bb-83d0f6d0da78}\"></supportedOS>";
+const WIN10: &str = "<supportedOS Id=\"{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}\"></supportedOS>";
+
+/// A mesma linha virada comentário XML, com o mesmo número de bytes.
+fn commented(line: &str) -> Vec<u8> {
+    let mut out = b"<!--".to_vec();
+    out.extend(std::iter::repeat_n(b' ', line.len() - 7));
+    out.extend_from_slice(b"-->");
+    out
+}
+
+fn find_all(hay: &[u8], needle: &[u8]) -> Vec<usize> {
+    hay.windows(needle.len()).enumerate().filter(|(_, w)| *w == needle).map(|(i, _)| i).collect()
+}
+
+/// Bytes do .exe sem as declarações de Windows 8.1/10 (None se não havia a do Windows 10).
+pub fn without_win10_manifest(exe: &[u8]) -> Option<Vec<u8>> {
+    let mut out = exe.to_vec();
+    let w10 = find_all(&out, WIN10.as_bytes());
+    if w10.len() != 1 {
+        return None;
+    }
+    for line in [WIN10, WIN81] {
+        let at = find_all(&out, line.as_bytes());
+        if at.len() > 1 {
+            return None;
+        }
+        if let Some(&i) = at.first() {
+            out[i..i + line.len()].copy_from_slice(&commented(line));
+        }
+    }
+    Some(out)
+}
+
+/// Cópia do java(w).exe para placas Intel antigas, ao lado do original (o Java acha
+/// as próprias bibliotecas pela pasta). Devolve o original se não há o que mudar.
+pub fn legacy_gl_java(java: &Path) -> Result<PathBuf> {
+    let bytes = std::fs::read(java).with_context(|| format!("lendo {}", java.display()))?;
+    let Some(patched) = without_win10_manifest(&bytes) else { return Ok(java.to_path_buf()) };
+    let stem = java.file_stem().and_then(|s| s.to_str()).unwrap_or("javaw");
+    let ext = java.extension().and_then(|s| s.to_str()).map(|e| format!(".{e}")).unwrap_or_default();
+    let target = java.with_file_name(format!("{stem}-intelhd{ext}"));
+    if std::fs::read(&target).ok().as_deref() != Some(&patched[..]) {
+        let tmp = target.with_extension("tmp");
+        std::fs::write(&tmp, &patched)?;
+        std::fs::rename(&tmp, &target)?;
+    }
+    Ok(target)
+}
+
+#[cfg(test)]
+mod intelhd_tests {
+    use super::*;
+
+    fn exe(manifest_lines: &[&str]) -> Vec<u8> {
+        let mut b = b"MZ\x90\x00 header ... <assembly><compatibility><application>".to_vec();
+        for l in manifest_lines {
+            b.extend_from_slice(l.as_bytes());
+        }
+        b.extend_from_slice(b"</application></compatibility></assembly> resto do PE");
+        b
+    }
+
+    #[test]
+    fn tira_windows_10_e_81_sem_mudar_o_tamanho() {
+        let w7 = "<supportedOS Id=\"{35138b9a-5d96-4fbd-8e2d-a2440225f93a}\"></supportedOS>";
+        let original = exe(&[w7, WIN81, WIN10]);
+        let out = without_win10_manifest(&original).unwrap();
+        assert_eq!(out.len(), original.len());
+        let text = String::from_utf8_lossy(&out);
+        assert!(text.contains(w7), "Windows 7 continua");
+        assert!(!text.contains("8e0f7a12") && !text.contains("1f676c76"));
+        assert_eq!(text.matches("<!--").count(), 2);
+        assert!(text.contains("<!--") && text.contains("-->"));
+        // sem a declaração do Windows 10: nada a fazer
+        assert!(without_win10_manifest(&exe(&[w7])).is_none());
+    }
+
+    /// No Windows de verdade (job da CI): a cópia do java.exe do runner ainda roda.
+    #[cfg(windows)]
+    #[test]
+    fn copia_roda_no_windows() {
+        let Ok(home) = std::env::var("JAVA_HOME_8_X64") else { return };
+        let java = std::path::Path::new(&home).join("bin").join("java.exe");
+        let copy = legacy_gl_java(&java).unwrap();
+        assert_ne!(copy, java, "o Java 8 do runner declara Windows 10: precisava de cópia");
+        let out = std::process::Command::new(&copy).arg("-version").output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        println!("{} -version: {}", copy.display(), String::from_utf8_lossy(&out.stderr).lines().next().unwrap_or(""));
+        let _ = std::fs::remove_file(copy);
+    }
+
+    /// Com o javaw.exe real (FORBIDDEN_TEST_JAVAW): só o manifesto muda.
+    #[test]
+    fn javaw_real() {
+        let Ok(path) = std::env::var("FORBIDDEN_TEST_JAVAW") else { return };
+        let original = std::fs::read(&path).unwrap();
+        let out = without_win10_manifest(&original).expect("javaw.exe sem a declaração do Windows 10");
+        let diff = original.iter().zip(&out).filter(|(a, b)| a != b).count();
+        assert!(diff > 0 && diff <= WIN10.len() + WIN81.len(), "{diff} bytes diferentes");
+        println!("javaw real: {diff} bytes do manifesto viraram comentário");
+    }
+}

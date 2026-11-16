@@ -76,6 +76,6 @@ jobs:
         shell: bash
         run: mkdir -p dist && echo '<!doctype html><title>teste</title>' > dist/index.html
 
-      - name: Testes do login e do cofre (DPAPI)
+      - name: Testes do login, do cofre (DPAPI) e do Java para Intel HD antiga
         working-directory: src-tauri
-        run: cargo test --lib 'auth::'
+        run: cargo test --lib -- 'auth::' 'intelhd_tests::' --nocapture

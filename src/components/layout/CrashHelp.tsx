@@ -71,7 +71,12 @@ export function CrashHelp() {
                 </div>
               )}
 
-              {help.kind === 'gpu_unsupported' && (
+              {help.kind === 'gpu_unsupported' && useSettings.getState().settings.compatGpu && (
+                <div className="mt-4 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-xs leading-relaxed text-muted">
+                  O modo compatibilidade já estava ligado, e o launcher já usou o Java ajustado para placas Intel antigas. Se o erro continua, o driver de vídeo deste PC não oferece OpenGL para o Minecraft neste Windows: só uma placa de vídeo dedicada resolve.
+                </div>
+              )}
+              {help.kind === 'gpu_unsupported' && !useSettings.getState().settings.compatGpu && (
                 <div className="mt-4 rounded-xl border border-accent/50 bg-brand/25 px-3.5 py-3">
                   <div className="text-sm font-semibold text-fg">Quer jogar mesmo assim?</div>
                   <p className="mt-1 text-xs leading-relaxed text-muted">O modo compatibilidade desliga só o Angelica e o Distant Horizons, que exigem OpenGL 3.3. O resto do modpack fica igual (sem shaders, sem terreno distante e com menos FPS).</p>
