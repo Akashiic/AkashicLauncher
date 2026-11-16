@@ -482,6 +482,18 @@ mod e2e {
             for l in t.lines().filter(|l| l.contains("successfully loaded") || l.contains("OpenGL") || l.contains("Exception") || l.contains("Modo compatibilidade")).take(40) {
                 println!("{l}");
             }
+            // erros de mixin completos (o crash report corta a causa)
+            let fml = std::fs::read_to_string(p.instance.join("logs").join("fml-client-latest.log")).unwrap_or_default();
+            println!("---- erros de mixin / causas ----");
+            for l in fml.lines().chain(reports.lines()).filter(|l| {
+                let low = l.to_ascii_lowercase();
+                (low.contains("mixin") && (low.contains("error") || low.contains("fatal") || low.contains("injection") || low.contains("critical") || low.contains("failed")))
+                    || low.contains("caused by")
+                    || low.contains("invalidinjection")
+                    || low.contains("injectionerror")
+            }).take(80) {
+                println!("{}", l.chars().take(1500).collect::<String>());
+            }
             if let Some(tx) = state.kill.lock().unwrap().take() {
                 let _ = tx.send(());
             }
