@@ -152,6 +152,67 @@ fn pack_root(names: &[String]) -> Option<String> {
     names.iter().all(|n| n.starts_with(&prefix)).then_some(prefix)
 }
 
+// ---- Modo compatibilidade (placas de vídeo sem OpenGL 3.3) ----
+
+/// Sufixo dos mods desligados pelo modo compatibilidade (o Forge ignora o arquivo).
+pub const COMPAT_OFF: &str = ".compat-off";
+
+/// Mods que exigem OpenGL 3.3 ou mais: o Angelica (e o fix que depende dele) e o
+/// Mirai (Distant Horizons). Os outros mods só têm integração opcional com o Angelica.
+const NEEDS_GL33: &[&str] = &["angelica-", "akashic-angelica-", "mirai-", "distanthorizons"];
+
+pub fn needs_gl33(rel: &str) -> bool {
+    let name = rel.rsplit('/').next().unwrap_or(rel).to_ascii_lowercase();
+    rel.starts_with("mods/") && (name.ends_with(".jar") || name.ends_with(".zip")) && NEEDS_GL33.iter().any(|p| name.starts_with(p))
+}
+
+/// Onde o arquivo do pack está de fato: o próprio, ou a cópia desligada pelo modo
+/// compatibilidade (que conta como instalada, para não baixar de novo).
+fn on_disk(instance: &Path, rel: &str) -> PathBuf {
+    let target = instance.join(rel);
+    if !target.exists() {
+        let off = instance.join(format!("{rel}{COMPAT_OFF}"));
+        if off.exists() {
+            return off;
+        }
+    }
+    target
+}
+
+/// Liga/desliga o modo compatibilidade nos mods do pack instalado. Devolve os nomes
+/// dos mods que mudaram de estado. Também apaga cópias desligadas que saíram do pack.
+pub fn set_compat(instance: &Path, on: bool) -> Result<Vec<String>> {
+    let Some(state) = installed(instance) else { return Ok(Vec::new()) };
+    let pack: HashSet<String> = state.paths().into_iter().collect();
+    let mut changed = Vec::new();
+    for rel in pack.iter().filter(|r| needs_gl33(r)) {
+        let (target, off) = (instance.join(rel), instance.join(format!("{rel}{COMPAT_OFF}")));
+        if on && target.exists() {
+            let _ = std::fs::remove_file(&off);
+            std::fs::rename(&target, &off).with_context(|| format!("desligando {rel}"))?;
+            changed.push(rel.rsplit('/').next().unwrap_or(rel).to_string());
+        } else if !on && !target.exists() && off.exists() {
+            std::fs::rename(&off, &target).with_context(|| format!("religando {rel}"))?;
+            changed.push(rel.rsplit('/').next().unwrap_or(rel).to_string());
+        } else if !on && target.exists() {
+            let _ = std::fs::remove_file(&off);
+        }
+    }
+    // cópias desligadas de mods que o pack não tem mais
+    for dir in [instance.join("mods"), instance.join("mods").join("1.7.10")] {
+        for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if let Some(base) = name.strip_suffix(COMPAT_OFF) {
+                let rel = e.path().with_file_name(base).strip_prefix(instance).map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+                if !pack.contains(&rel) {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+        }
+    }
+    Ok(changed)
+}
+
 /// Resumo do pack instalado para o log: quantos mods e de onde vem o Forge.
 pub fn layout_report(instance: &Path) -> (usize, bool) {
     let mods = std::fs::read_dir(instance.join("mods"))
@@ -237,7 +298,7 @@ pub fn damaged(instance: &Path, state: &InstalledPack, deep: bool) -> Vec<String
         .iter()
         .filter(|r| !is_keep(&r.path))
         .filter(|r| {
-            let target = instance.join(&r.path);
+            let target = on_disk(instance, &r.path);
             let Ok(meta) = std::fs::metadata(&target) else { return true };
             if is_config(&r.path) {
                 return false;
@@ -285,7 +346,7 @@ pub async fn plan(net: &Net, instance: &Path, pack: &PackInfo, deep: bool) -> Re
     let mut fetch = Vec::new();
     let (mut added, mut changed, mut repaired) = (0, 0, 0);
     for (rel, e) in &remote {
-        let exists = instance.join(rel).exists();
+        let exists = on_disk(instance, rel).exists();
         if is_keep(rel) && exists {
             continue;
         }
@@ -596,6 +657,35 @@ pub(crate) async fn latest_published_pack() -> (PackInfo, Vec<serde_json::Value>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn modo_compatibilidade_desliga_e_religa_sem_baixar_de_novo() {
+        let dir = std::env::temp_dir().join(format!("forbidden-compat-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("mods")).unwrap();
+        let files = [("mods/angelica-2.2.43.jar", "A"), ("mods/Mirai-forge17-1.0-BETA-1.7.10.jar", "MI"), ("mods/Akashic-Angelica-Atlas-Heap-Fix-1.0.0-rc1-client.jar", "F"), ("mods/gtnhlib-0.11.54.jar", "G")];
+        let mut entries = Vec::new();
+        for (rel, body) in files {
+            std::fs::write(dir.join(rel), body).unwrap();
+            entries.push(FileRec { path: rel.into(), crc: crc32fast::hash(body.as_bytes()), size: body.len() as u64 });
+        }
+        write_state(&dir, &InstalledPack { tag: "TEOF-5.6".into(), layout: LAYOUT, entries, files: Vec::new() }).unwrap();
+        std::fs::write(dir.join("mods/velho.jar.compat-off"), "x").unwrap();
+
+        let off = set_compat(&dir, true).unwrap();
+        assert_eq!(off.len(), 3, "{off:?}");
+        assert!(dir.join("mods/angelica-2.2.43.jar.compat-off").exists() && !dir.join("mods/angelica-2.2.43.jar").exists());
+        assert!(dir.join("mods/gtnhlib-0.11.54.jar").exists(), "os outros mods ficam");
+        assert!(!dir.join("mods/velho.jar.compat-off").exists(), "cópia de mod que saiu do pack é apagada");
+        // desligado não conta como estrago: o atualizador não baixa de novo
+        assert!(damaged(&dir, &installed(&dir).unwrap(), true).is_empty());
+        assert_eq!(layout_report(&dir).0, 1);
+
+        assert_eq!(set_compat(&dir, false).unwrap().len(), 3);
+        assert!(dir.join("mods/angelica-2.2.43.jar").exists());
+        assert_eq!(layout_report(&dir).0, 4);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn caminhos_perigosos_sao_recusados() {

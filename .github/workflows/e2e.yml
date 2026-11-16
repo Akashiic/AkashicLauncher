@@ -55,3 +55,61 @@ jobs:
             ${{ runner.temp }}/dados/.forbiddenseries/instances/forbidden/.forbidden/pack.json
           if-no-files-found: warn
           retention-days: 14
+
+  # PC fraco: OpenGL limitado a 3.1 (como a Intel HD 2000 de 2011). Sem o modo
+  # compatibilidade tem que dar o crash do Angelica; com ele, o jogo tem que
+  # carregar todos os mods.
+  opengl31:
+    name: PC fraco (OpenGL 3.1) · ${{ matrix.name }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: sem modo compatibilidade
+            compat: '0'
+            expect: crash
+          - name: com modo compatibilidade
+            compat: '1'
+            expect: load
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Dependências do sistema (Tauri, tela virtual e OpenGL por software)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            xvfb x11-xserver-utils libgl1-mesa-dri libxtst6 libxi6 libxrender1 libxext6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: e2e
+
+      - name: Interface vazia (o teste não precisa dela)
+        run: mkdir -p dist && echo '<!doctype html>' > dist/index.html
+
+      - name: JOGAR com OpenGL 3.1
+        working-directory: src-tauri
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XDG_DATA_HOME: ${{ runner.temp }}/dados
+          MESA_GL_VERSION_OVERRIDE: '3.1'
+          MESA_GLSL_VERSION_OVERRIDE: '140'
+          FORBIDDEN_E2E_COMPAT: ${{ matrix.compat }}
+          FORBIDDEN_E2E_GL31: ${{ matrix.expect }}
+        run: xvfb-run -a -s "-screen 0 1280x800x24" cargo test -- --ignored --nocapture jogar_instala_o_pack
+
+      - name: Logs do jogo
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: opengl31-${{ matrix.compat }}-logs
+          path: |
+            ${{ runner.temp }}/dados/.forbiddenseries/instances/forbidden/logs/
+            ${{ runner.temp }}/dados/.forbiddenseries/instances/forbidden/crash-reports/
+          if-no-files-found: warn
+          retention-days: 14

@@ -94,6 +94,9 @@ pub struct PlayRequest {
     /// placa de vídeo do jogo: auto | integrated | dedicated
     #[serde(default)]
     gpu_preference: String,
+    /// modo compatibilidade: desliga os mods que exigem OpenGL 3.3 (placas antigas)
+    #[serde(default)]
+    compat_gpu: bool,
 }
 
 fn log<R: Runtime>(app: &AppHandle<R>, s: impl AsRef<str>) {
@@ -247,6 +250,18 @@ async fn play<R: Runtime>(app: &AppHandle<R>, state: &GameState, req: PlayReques
         },
     }
 
+    // modo compatibilidade (placa de vídeo sem OpenGL 3.3)
+    match modpack::set_compat(&p.instance, req.compat_gpu) {
+        Ok(changed) if !changed.is_empty() => log(app, format!(
+            "Modo compatibilidade {}: {}",
+            if req.compat_gpu { "ligado, mods desligados" } else { "desligado, mods religados" },
+            changed.join(", ")
+        )),
+        Ok(_) if req.compat_gpu => log(app, "Modo compatibilidade ligado (Angelica e Mirai desligados)."),
+        Ok(_) => {}
+        Err(e) => log(app, format!("Não deu para aplicar o modo compatibilidade: {e:#}")),
+    }
+
     // resumo para o log: um pack sem mods nunca passa em silêncio
     let (mod_count, pack_forge) = modpack::layout_report(&p.instance);
     log(app, format!(
@@ -398,6 +413,7 @@ mod e2e {
             java_path: None,
             pack: Some(pack.clone()),
             gpu_preference: String::new(),
+            compat_gpu: std::env::var("FORBIDDEN_E2E_COMPAT").is_ok_and(|v| v == "1"),
         };
         let state = handle.state::<GameState>();
         let progress = Arc::new(Progress::default());
@@ -437,8 +453,50 @@ mod e2e {
         for l in text.lines().rev().take(25).collect::<Vec<_>>().into_iter().rev() {
             println!("{l}");
         }
-        if let Some(tx) = state.kill.lock().unwrap().take() {
-            let _ = tx.send(());
+        if std::env::var("FORBIDDEN_E2E_GL31").is_err() {
+            if let Some(tx) = state.kill.lock().unwrap().take() {
+                let _ = tx.send(());
+            }
+        }
+        // PC fraco (OpenGL limitado a 3.1 no Mesa, como a Intel HD 2000):
+        // sem o modo compatibilidade o jogo tem que dar o crash do Angelica;
+        // com ele, tem que terminar de carregar os mods.
+        if let Ok(expect) = std::env::var("FORBIDDEN_E2E_GL31") {
+            let deadline = Instant::now() + Duration::from_secs(45 * 60);
+            let mut loaded = false;
+            while Instant::now() < deadline && state.running.load(Ordering::Relaxed) {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                let t = std::fs::read_to_string(&log).unwrap_or_default();
+                if t.contains("has successfully loaded") {
+                    loaded = true;
+                    break;
+                }
+            }
+            let t = std::fs::read_to_string(&log).unwrap_or_default();
+            let reports: String = std::fs::read_dir(p.instance.join("crash-reports"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|e| std::fs::read_to_string(e.path()).ok())
+                .collect();
+            for l in t.lines().filter(|l| l.contains("successfully loaded") || l.contains("OpenGL") || l.contains("Exception") || l.contains("Modo compatibilidade")).take(40) {
+                println!("{l}");
+            }
+            if let Some(tx) = state.kill.lock().unwrap().take() {
+                let _ = tx.send(());
+            }
+            match expect.as_str() {
+                "crash" => {
+                    assert!(!loaded, "com OpenGL 3.1 e o Angelica ligado o jogo não deveria carregar");
+                    assert!((t.clone() + &reports).contains("OpenGL 3.3"), "esperava o crash do Angelica pedindo OpenGL 3.3");
+                    println!("OK: sem o modo compatibilidade, o crash é o mesmo do jogador (OpenGL 3.3)");
+                }
+                _ => {
+                    assert!(loaded, "com o modo compatibilidade o jogo deveria carregar todos os mods (veja o log acima){}", if reports.is_empty() { String::new() } else { format!("\n{}", &reports[..reports.len().min(4000)]) });
+                    println!("OK: com o modo compatibilidade e OpenGL 3.1, o Forge carregou todos os mods");
+                }
+            }
+            return;
         }
         let identified = identified.expect("o Forge não chegou a identificar os mods (veja o log acima)");
         println!("Forge identificou {identified} mods (pasta mods/ tem {mods} arquivos)");
